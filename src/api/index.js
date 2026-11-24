@@ -2,20 +2,35 @@ import { useMainStore } from '../stores/main.js'
 import { API } from './config.js'
 
 // 封装授权请求
+const SESSION_KEY = 'biaosub_session'
+
+export function readSession() {
+    return sessionStorage.getItem(SESSION_KEY) || ''
+}
+
+export function writeSession(token) {
+    if (token) sessionStorage.setItem(SESSION_KEY, token)
+    else sessionStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem('auth_token')
+}
+
 export async function authFetch(url, options = {}) {
     const store = useMainStore()
-    const headers = { ...options.headers, 'Authorization': localStorage.getItem('auth_token') || '' }
+    const headers = { ...options.headers }
+    const token = readSession()
+    if (token) headers.Authorization = `Bearer ${token}`
     if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json'
         options.body = JSON.stringify(options.body)
     }
     const res = await fetch(url, { ...options, headers })
+    const data = await res.json().catch(() => ({ success: false, error: '响应不是 JSON' }))
     if (res.status === 401) {
         store.isLoggedIn = false
-        localStorage.removeItem('auth_token')
-        throw new Error('Unauthorized')
+        writeSession('')
+        throw new Error(data.error || '未登录或会话已过期')
     }
-    return res.json()
+    return data
 }
 
 // 加载资源列表

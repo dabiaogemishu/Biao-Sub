@@ -36,7 +36,7 @@
               <!-- 订阅链接 -->
               <div class="mt-2 flex flex-wrap gap-1 sm:gap-2">
                 <button @click="copyLink(g.token, 'clash')" class="btn btn-xs btn-outline btn-primary gap-1">
-                  <i class="fa-solid fa-copy"></i> Clash
+                  <i class="fa-solid fa-copy"></i> Clash（默认）
                 </button>
                 <button v-if="!isRawMode(g)" @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1">
                   <i class="fa-solid fa-copy"></i> Base64
@@ -106,9 +106,8 @@ function openEditGroup(g) {
 }
 
 function copyLink(token, format) {
-  const base = window.location.origin
-  const link = `${base}/api/g/${token}?format=${format}`
-  copyText(link)
+  const base = `${window.location.origin}/api/g/${token}`
+  copyText(format === 'base64' ? `${base}?format=base64` : base)
 }
 
 async function deleteGroup(id) {

@@ -57,8 +57,9 @@ onMounted(() => {
   store.theme = savedTheme
   document.documentElement.setAttribute('data-theme', savedTheme)
 
-  // 自动登录
-  const token = localStorage.getItem('auth_token')
+  // 只恢复本次标签页的会话。旧版本把明文密码放在 localStorage，这里直接清掉。
+  localStorage.removeItem('auth_token')
+  const token = sessionStorage.getItem('biaosub_session')
   if (token) {
     store.isLoggedIn = true
     loadResources()

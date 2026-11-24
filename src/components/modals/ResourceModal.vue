@@ -49,8 +49,8 @@
         <label class="label"><span class="label-text text-adaptive-muted">内容</span></label>
         <textarea v-model="store.resourceForm.url" rows="5"
           :placeholder="store.resourceForm.type === 'node'
-            ? '粘贴节点链接（每行一个）\n支持 vmess://, vless://, ss://, trojan://, hysteria2://, tuic://'
-            : '粘贴多条节点链接，将作为一个节点组管理'"
+            ? '粘贴节点分享链接，每行一个。多条会拆成多个资源。\n支持 ss、ssr、vmess、vless、trojan、hysteria2、tuic、anytls'
+            : '粘贴多条分享链接，或整段 Clash YAML / Base64 订阅，作为一个节点组'"
           class="textarea textarea-bordered bg-adaptive-input w-full font-mono text-xs"></textarea>
       </div>
 
@@ -71,7 +71,7 @@
 import { ref } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
-import { showToast, updateLinkName } from '../../utils/helpers.js'
+import { showToast } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -89,20 +89,18 @@ async function saveResource() {
 
   store.submitting = true
   try {
-    if (store.resourceModal.isEdit) {
-      const body = { ...store.resourceForm }
-      // 编辑自建节点时，如果改了名称，同步更新链接中的名称
-      if (body.type === 'node' && body.name && body.url) {
-        body.url = updateLinkName(body.url, body.name)
-      }
-      await authFetch(`${API}/subs/${body.id}`, { method: 'PUT', body })
-    } else {
-      await authFetch(`${API}/subs`, { method: 'POST', body: store.resourceForm })
+    const res = store.resourceModal.isEdit
+      ? await authFetch(`${API}/subs/${store.resourceForm.id}`, { method: 'PUT', body: { ...store.resourceForm } })
+      : await authFetch(`${API}/subs`, { method: 'POST', body: store.resourceForm })
+    if (!res.success) {
+      showToast(res.error || '导入失败', 'error')
+      return
     }
-    showToast(store.resourceModal.isEdit ? '修改成功' : '添加成功')
+    if (res.warnings?.length) showToast(`已保存，有链接未识别：${res.warnings[0].message}`, 'error')
+    else showToast(store.resourceModal.isEdit ? '修改成功' : '添加成功')
     store.resourceModal.show = false
     loadResources()
-  } catch (e) { showToast('操作失败', 'error') }
-  store.submitting = false
+  } catch (e) { showToast(e.message || '操作失败', 'error') }
+  finally { store.submitting = false }
 }
 </script>

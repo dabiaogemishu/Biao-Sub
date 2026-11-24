@@ -94,7 +94,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
-import { showToast, copyText, updateLinkName } from '../../utils/helpers.js'
+import { showToast, copyText } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -237,12 +237,19 @@ async function saveChanges() {
       orderedNodes = domOrder.map(idx => store.previewModal.nodes[idx])
     }
 
-    const newLinks = orderedNodes.map(n => n.link).filter(Boolean).join('\n')
-
-    await authFetch(`${API}/subs/${store.previewModal.resourceId}`, {
+    const kept = orderedNodes.filter(node => node.link)
+    const res = await authFetch(`${API}/subs/${store.previewModal.resourceId}`, {
       method: 'PUT',
-      body: { url: newLinks }
+      body: {
+        url: kept.map(node => node.link).join('\n'),
+        names: kept.map(node => node.name || '')
+      }
     })
+    if (!res.success) {
+      showToast(res.error || '保存失败', 'error')
+      saving.value = false
+      return
+    }
 
     showToast('修改已保存')
     loadResources()
