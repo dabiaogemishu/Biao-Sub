@@ -427,10 +427,13 @@ async function saveGroup() {
       clash_config: store.groupForm.clash_config
     }
 
-    if (store.groupModal.isEdit) {
-      await authFetch(`${API}/groups/${store.groupForm.id}`, { method: 'PUT', body })
-    } else {
-      await authFetch(`${API}/groups`, { method: 'POST', body })
+    const res = store.groupModal.isEdit
+      ? await authFetch(`${API}/groups/${store.groupForm.id}`, { method: 'PUT', body })
+      : await authFetch(`${API}/groups`, { method: 'POST', body })
+    if (!res.success) {
+      showToast(res.error || '操作失败', 'error')
+      store.submitting = false
+      return
     }
 
     showToast(store.groupModal.isEdit ? '修改成功' : '创建成功')

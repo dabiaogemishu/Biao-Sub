@@ -35,6 +35,7 @@ function toggleTheme() {
 
 function logout() {
   store.isLoggedIn = false
+  sessionStorage.removeItem('biaosub_session')
   localStorage.removeItem('auth_token')
   showToast('已退出登录')
 }

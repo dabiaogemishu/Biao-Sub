@@ -44,8 +44,10 @@ async function handlePreview(resource) {
     if (res.success) {
       store.previewModal.nodes = res.data.nodes || []
       store.previewModal.originalNodes = JSON.parse(JSON.stringify(res.data.nodes || []))
+      if (res.data.errors?.length) showToast(res.data.errors[0].message, 'error')
     } else {
       store.previewModal.nodes = []
+      showToast(res.error || '没有识别到节点', 'error')
     }
   } catch (e) {
     store.previewModal.nodes = []

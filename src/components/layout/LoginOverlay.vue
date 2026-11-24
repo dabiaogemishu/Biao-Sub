@@ -19,7 +19,7 @@
 
 <script setup>
 import { useMainStore } from '../../stores/main.js'
-import { authFetch, loadResources, loadGroups, loadTemplates } from '../../api/index.js'
+import { writeSession, loadResources, loadGroups, loadTemplates } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
@@ -35,16 +35,16 @@ async function handleLogin() {
       body: JSON.stringify({ password: store.loginPassword })
     })
     const data = await res.json()
-    if (data.success) {
+    if (data.success && data.token) {
       store.isLoggedIn = true
-      localStorage.setItem('auth_token', store.loginPassword)
+      writeSession(data.token)
       store.loginPassword = ''
       loadResources()
       loadGroups()
       loadTemplates()
       showToast('登录成功')
     } else {
-      showToast('密码错误', 'error')
+      showToast(data.error || '密码错误', 'error')
     }
   } catch (e) {
     showToast('登录失败', 'error')
