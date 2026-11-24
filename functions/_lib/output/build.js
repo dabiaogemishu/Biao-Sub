@@ -55,6 +55,11 @@ function resourceNames(nodes) {
     return map;
 }
 
+function explicitProxies(group) {
+    if (!Array.isArray(group?.proxies)) return [];
+    return group.proxies.map(item => String(item ?? '').trim()).filter(Boolean);
+}
+
 function buildProxyGroups(nodes, clashConfig) {
     const groups = Array.isArray(clashConfig?.groups) ? clashConfig.groups : [];
     if (!groups.length) return [];
@@ -63,17 +68,20 @@ function buildProxyGroups(nodes, clashConfig) {
     const groupNames = new Set(groups.map(group => group.name).filter(Boolean));
     const byResource = resourceNames(nodes);
     return groups.filter(group => group && group.name).map(group => {
+        const explicit = explicitProxies(group);
         let proxies;
-        if (group.useAllProxies) proxies = nodeNames.slice();
-        else {
+        // 默认模板的 Proxy 组不填写节点。空列表表示放进本次选出的节点，避免策略组只剩 DIRECT。
+        if (group.useAllProxies || explicit.length === 0) {
+            proxies = nodeNames.length ? nodeNames.slice() : ['DIRECT'];
+        } else {
             proxies = [];
-            for (const item of group.proxies || []) {
+            for (const item of explicit) {
                 if (groupNames.has(item) && item !== group.name) proxies.push(item);
                 else if (byResource.has(item)) proxies.push(...byResource.get(item));
                 else if (nodeSet.has(item) || BUILTIN.has(item)) proxies.push(item);
             }
+            if (!proxies.length) proxies = ['DIRECT'];
         }
-        if (!proxies.length) proxies = ['DIRECT'];
         return cleanObject({
             name: group.name,
             type: group.type || 'select',
