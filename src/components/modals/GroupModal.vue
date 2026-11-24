@@ -14,13 +14,13 @@
 
       <!-- Tab 切换 -->
       <div class="tabs tabs-boxed mx-4 sm:mx-6 mt-4 p-1">
-        <a v-if="store.groupForm.clash_config.mode !== 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='base'}" @click="store.groupModal.tab='base'">
+        <a class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='base'}" @click="store.groupModal.tab='base'">
           <i class="fa-solid fa-cubes mr-2"></i> 节点配置
         </a>
         <a v-if="store.groupForm.clash_config.mode !== 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='clash'}" @click="store.groupModal.tab='clash'">
           <i class="fa-solid fa-gears mr-2"></i> Clash配置
         </a>
-        <a v-if="store.groupForm.clash_config.mode === 'raw'" class="tab flex-1 tab-active">
+        <a v-if="store.groupForm.clash_config.mode === 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='raw'}" @click="store.groupModal.tab='raw'">
           <i class="fa-solid fa-cloud-arrow-up mr-2"></i> 托管YAML
         </a>
       </div>
@@ -39,7 +39,7 @@
         </div>
 
         <!-- Tab: 节点配置 -->
-        <div v-show="store.groupModal.tab === 'base' && store.groupForm.clash_config.mode !== 'raw'">
+        <div v-show="store.groupModal.tab === 'base'">
           <!-- 选择资源 -->
           <div class="mb-4">
             <div class="flex items-center justify-between mb-3">
@@ -104,16 +104,22 @@
                 <!-- 链式代理选择 -->
                 <div v-if="c.dialerProxy && c.dialerProxy.enabled" class="px-3 pb-2 flex items-center gap-2 border-t border-panel-border pt-2 ml-7">
                   <i class="fa-solid fa-arrow-right-arrow-left text-warning text-xs"></i>
-                  <span class="text-xs text-adaptive-muted whitespace-nowrap">中转策略组:</span>
+                  <span class="text-xs text-adaptive-muted whitespace-nowrap">链式目标:</span>
                   <select v-model="c.dialerProxy.group" class="select select-bordered select-xs bg-adaptive-input flex-1 min-w-0">
-                    <option value="">请选择策略组</option>
-                    <option v-for="pg in store.groupForm.clash_config.groups" :key="pg.name" :value="pg.name">
-                      {{ pg.name }}
-                    </option>
+                    <option value="">请选择策略组或节点</option>
+                    <optgroup v-if="chainGroups().length" label="策略组">
+                      <option v-for="name in chainGroups()" :key="'group-' + name" :value="name">{{ name }}</option>
+                    </optgroup>
+                    <optgroup v-if="chainNodes(c).length" label="节点">
+                      <option v-for="name in chainNodes(c)" :key="'node-' + c.subId + '-' + name" :value="name">{{ name }}</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
             </div>
+            <p v-if="chainActive" class="text-xs text-warning mt-2">
+              链式代理只写入 Clash 订阅。Base64 分享链接仍是普通节点，不包含链式。
+            </p>
           </div>
 
           <!-- 已选资源的筛选信息 -->
@@ -227,7 +233,7 @@
 
           <!-- YAML 预览/编辑 -->
           <div class="form-control">
-            <label class="label"><span class="label-text text-adaptive-muted">YAML 内容（可直接编辑）</span></label>
+            <label class="label"><span class="label-text text-adaptive-muted">YAML 内容（可直接编辑）。已选节点会写入 proxies；头部、策略组和规则保留。同名代理用已选节点替换，其余上传代理保留，新节点追加在后面。</span></label>
             <textarea v-model="store.groupForm.clash_config.raw_yaml"
               class="code-editor w-full h-96 textarea textarea-bordered bg-adaptive-input text-xs font-mono"
               placeholder="上传 YAML 文件或直接粘贴完整的 Clash 配置..."></textarea>
@@ -259,7 +265,8 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
+import { parse as parseYaml } from 'yaml'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups, loadTemplates } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
@@ -269,6 +276,62 @@ const store = useMainStore()
 const uploadedFileName = ref('')
 const selectedResourceListRef = ref(null)
 const proxyGroupListRef = ref(null)
+const nodeNamesBySubId = ref({})
+let chainLoad = 0
+
+const chainActive = computed(() => (store.groupForm.config || []).some(item => item?.dialerProxy?.enabled))
+
+function pickedNames(item, nodes) {
+  const names = (nodes || []).map(node => node?.name).filter(Boolean)
+  if (Array.isArray(item.include) && item.include.length) {
+    const allow = new Set(item.include)
+    return names.filter(name => allow.has(name))
+  }
+  if (Array.isArray(item.selectedNodes) && item.selectedNodes.length) {
+    const allow = new Set(item.selectedNodes.map(Number))
+    return names.filter((_, index) => allow.has(index))
+  }
+  return names
+}
+
+async function loadChainNodes() {
+  const ticket = ++chainLoad
+  const next = {}
+  await Promise.all((store.groupForm.config || []).map(async (item) => {
+    const resource = store.resources.find(entry => entry.id === item.subId)
+    if (!resource?.url) return
+    try {
+      const res = await authFetch(`${API}/check`, { method: 'POST', body: { url: resource.url } })
+      if (res.success) next[item.subId] = pickedNames(item, res.data?.nodes || [])
+    } catch { /* 保存时仍由服务端校验 */ }
+  }))
+  if (ticket === chainLoad) nodeNamesBySubId.value = next
+}
+
+function chainGroups() {
+  const names = (store.groupForm.clash_config.groups || []).map(group => group?.name).filter(Boolean)
+  if (store.groupForm.clash_config.mode === 'raw') {
+    try {
+      const doc = parseYaml(store.groupForm.clash_config.raw_yaml || '')
+      for (const group of doc?.['proxy-groups'] || []) {
+        if (group?.name) names.push(String(group.name))
+      }
+    } catch { /* 策略组名留到 YAML 能解析时再出现 */ }
+  }
+  return [...new Set(names)]
+}
+
+function chainNodes(current) {
+  const groups = new Set(chainGroups())
+  const names = []
+  for (const item of store.groupForm.config || []) {
+    if (item.subId === current.subId) continue
+    for (const name of nodeNamesBySubId.value[item.subId] || []) {
+      if (!groups.has(name) && !names.includes(name)) names.push(name)
+    }
+  }
+  return names
+}
 
 const emit = defineEmits(['openNodeSelector', 'openClashNodeSelector'])
 
@@ -332,6 +395,10 @@ async function initProxyGroupSortable() {
   } catch (e) { console.error('Proxy Group sortable init failed:', e) }
 }
 
+watch(() => store.groupModal.show, (show) => { if (show) loadChainNodes() })
+watch(() => (store.groupForm.config || []).map(item => `${item.subId}:${(item.include || []).join(',')}:${(item.selectedNodes || []).join(',')}`).join('|'), () => {
+  if (store.groupModal.show) loadChainNodes()
+})
 watch(() => store.groupForm.config.length, () => { nextTick(initConfigSortable) })
 watch(() => store.groupForm.clash_config.groups.length, () => { nextTick(initProxyGroupSortable) })
 watch(() => store.groupModal.tab, (tab) => { 
@@ -417,6 +484,10 @@ async function saveGroup() {
     store.groupNameError = true
     return
   }
+  if ((store.groupForm.config || []).some(item => item?.dialerProxy?.enabled && !String(item.dialerProxy.group || '').trim())) {
+    showToast('请选择链式代理目标', 'error')
+    return
+  }
   store.groupNameError = false
   store.submitting = true
 
@@ -446,12 +517,17 @@ async function saveGroup() {
 async function refreshToken() {
   if (!confirm('刷新Token后，旧的订阅链接将失效！确定？')) return
   try {
-    await authFetch(`${API}/groups/${store.groupForm.id}`, {
+    const res = await authFetch(`${API}/groups/${store.groupForm.id}`, {
       method: 'PUT',
       body: { refresh_token: true }
     })
+    if (!res.success || !res.token) {
+      showToast(res.error || '刷新失败', 'error')
+      return
+    }
+    const group = store.groups.find(item => item.id === store.groupForm.id)
+    if (group) group.token = res.token
     showToast('Token已刷新')
-    loadGroups()
   } catch (e) { showToast('刷新失败', 'error') }
 }
 

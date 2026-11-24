@@ -63,7 +63,12 @@ function selectTemplate(type, template) {
     }
   } else if (type === 'blank') {
     store.groupForm.clash_config = {
-      mode: 'generate', header: '', groups: [], rules: '', resources: [], raw_yaml: ''
+      mode: 'generate',
+      header: '',
+      groups: [{ name: 'Proxy', type: 'select', proxies: [], useAllProxies: true }],
+      rules: 'MATCH,Proxy',
+      resources: [],
+      raw_yaml: ''
     }
   } else if (type === 'raw') {
     store.groupForm.clash_config = {

@@ -38,10 +38,11 @@
                 <button @click="copyLink(g.token, 'clash')" class="btn btn-xs btn-outline btn-primary gap-1">
                   <i class="fa-solid fa-copy"></i> Clash（默认）
                 </button>
-                <button v-if="!isRawMode(g)" @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1">
+                <button @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1">
                   <i class="fa-solid fa-copy"></i> Base64
                 </button>
               </div>
+              <p v-if="hasChain(g)" class="text-xs text-warning mt-2">Base64 订阅不含链式代理，链式只在 Clash 订阅里生效。</p>
             </div>
             <!-- 操作按钮 -->
             <div class="flex gap-1 flex-shrink-0">
@@ -75,6 +76,10 @@ import { defaultHeader, defaultRules } from '../../api/config.js'
 
 const store = useMainStore()
 const groupListRef = ref(null)
+
+function hasChain(group) {
+  return (group.config || []).some(item => item?.dialerProxy?.enabled)
+}
 
 function isRawMode(g) {
   try {

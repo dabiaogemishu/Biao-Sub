@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { encodeBase64 } from '../functions/_lib/core/codec.js';
 import { parseUri } from '../functions/_lib/uri/index.js';
-import { stripResources, planRemoteRefresh } from '../functions/_lib/groups/membership.js';
+import { alignMembership, stripResources, planRemoteRefresh } from '../functions/_lib/groups/membership.js';
 import { performRemoteRefresh } from '../functions/_lib/remote-service.js';
 import { planRestore } from '../functions/_lib/backup.js';
 
@@ -89,7 +89,13 @@ test('删除资源才会从组里拿掉，刷新计划本身不动组', () => {
     };
     const removed = stripResources(group, [3]);
     assert.deepEqual(removed.config, [{ subId: 4 }]);
-    assert.deepEqual(removed.clash_config.resources, [{ subId: 9 }]);
+    assert.deepEqual(removed.clash_config.resources, [{ subId: 4 }]);
+    const aligned = alignMembership(
+        [{ subId: 2, dialerProxy: { enabled: true, group: '甲' } }],
+        { mode: 'generate', resources: [{ subId: 9 }], groups: [{ name: 'Proxy', type: 'select' }] }
+    );
+    assert.deepEqual(aligned.clashConfig.resources, [{ subId: 2, dialerProxy: { enabled: true, group: '甲' } }]);
+    assert.notEqual(aligned.clashConfig.resources[0], aligned.config[0]);
     const plan = planRemoteRefresh({ id: 3, url: 'old', info: {} }, { nodes: [], errors: [{ message: '空' }] });
     assert.equal(plan.ok, false);
     assert.equal(plan.subscription.url, 'old');
