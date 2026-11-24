@@ -55,7 +55,7 @@ function selectTemplate(type, template) {
       mode: 'generate',
       header: defaultHeader,
       groups: [
-        { name: 'Proxy', type: 'select', proxies: [], useAllProxies: false }
+        { name: 'Proxy', type: 'select', proxies: [], useAllProxies: true }
       ],
       rules: defaultRules,
       resources: [],

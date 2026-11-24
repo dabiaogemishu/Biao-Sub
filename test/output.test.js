@@ -4,6 +4,7 @@ import { parse as parseYaml } from 'yaml';
 import { encodeBase64, decodeBase64 } from '../functions/_lib/core/codec.js';
 import { parseUri } from '../functions/_lib/uri/index.js';
 import { parseSubscription } from '../functions/_lib/subscribe/parse.js';
+import { defaultRules } from '../src/api/config.js';
 import { renderClash, renderSubscription, resolveFormat } from '../functions/_lib/output/build.js';
 
 const UUID = 'b831381d-6324-4d53-ad4f-8cda48b30811';
@@ -77,6 +78,34 @@ test('Clash 规则输出为 rules 列表，整份文档可以解析', () => {
     });
     assert.deepEqual(parseYaml(wrapped).rules, ['GEOIP,CN,DIRECT', 'MATCH,代理']);
     assert.equal((wrapped.match(/^rules:/gm) || []).length, 1);
+});
+
+test('默认模板的 Proxy 组包含已选节点，显式列表保持不变', () => {
+    const built = renderSubscription({
+        entries: [{
+            nodes: [node('香港'), node('日本', '8.8.8.8')],
+            include: ['香港', '日本'],
+            resourceName: '自建'
+        }],
+        clashConfig: {
+            groups: [{ name: 'Proxy', type: 'select', proxies: [], useAllProxies: false }],
+            rules: defaultRules
+        }
+    });
+    const doc = parseYaml(built.clash);
+    assert.deepEqual(doc.proxies.map(proxy => proxy.name), ['香港', '日本']);
+    const proxyGroup = doc['proxy-groups'].find(group => group.name === 'Proxy');
+    assert.deepEqual(proxyGroup.proxies, ['香港', '日本']);
+    assert.equal(doc.rules.includes('MATCH,Proxy'), true);
+
+    const custom = renderSubscription({
+        entries: [{ nodes: [node('香港'), node('日本', '8.8.8.8')], resourceName: '自建' }],
+        clashConfig: {
+            groups: [{ name: 'Proxy', type: 'select', proxies: ['日本', 'DIRECT'] }],
+            rules: 'MATCH,Proxy'
+        }
+    });
+    assert.deepEqual(parseYaml(custom.clash)['proxy-groups'][0].proxies, ['日本', 'DIRECT']);
 });
 
 test('只给序号时也筛选，空 include 表示全选', () => {

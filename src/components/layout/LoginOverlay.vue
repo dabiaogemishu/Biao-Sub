@@ -12,21 +12,29 @@
           <span v-if="store.loginLoading" class="loading loading-spinner loading-sm"></span>
           {{ store.loginLoading ? '验证中...' : '登录' }}
         </button>
+        <p v-if="passwordError" class="text-error text-sm mt-3">{{ passwordError }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { writeSession, loadResources, loadGroups, loadTemplates } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
+const passwordError = ref('')
 
 async function handleLogin() {
-  if (!store.loginPassword) return
+  if (!String(store.loginPassword || '').trim()) {
+    passwordError.value = '请输入密码'
+    showToast('请输入密码', 'error')
+    return
+  }
+  passwordError.value = ''
   store.loginLoading = true
   try {
     const res = await fetch(`${API}/login`, {
