@@ -85,6 +85,22 @@ function buildProxyGroups(nodes, clashConfig) {
     });
 }
 
+function renderRules(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+    const firstContent = text.split(/\r?\n/).map(line => line.trim()).find(line => line && !line.startsWith('#'));
+    // 用户已经给了完整的 rules: 块时原样拼上，避免再包一层。
+    if (firstContent && /^rules\s*:/.test(firstContent)) return text;
+    const items = [];
+    for (const line of text.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        items.push(trimmed.replace(/^-\s+/, ''));
+    }
+    if (!items.length) return '';
+    return stringify({ rules: items }, { lineWidth: 0 }).trimEnd();
+}
+
 export function renderClash(nodes, clashConfig = {}) {
     const proxies = nodes.map(node => nodeToClashProxy(node));
     const groups = buildProxyGroups(nodes, clashConfig);
@@ -92,7 +108,8 @@ export function renderClash(nodes, clashConfig = {}) {
     if (clashConfig.header && String(clashConfig.header).trim()) parts.push(String(clashConfig.header).trim());
     parts.push(stringify({ proxies }, { lineWidth: 0 }).trimEnd());
     if (groups.length) parts.push(stringify({ 'proxy-groups': groups }, { lineWidth: 0 }).trimEnd());
-    if (clashConfig.rules && String(clashConfig.rules).trim()) parts.push(String(clashConfig.rules).trim());
+    const rules = renderRules(clashConfig.rules);
+    if (rules) parts.push(rules);
     return `${parts.join('\n\n')}\n`;
 }
 

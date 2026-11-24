@@ -4,7 +4,7 @@ import { parse as parseYaml } from 'yaml';
 import { encodeBase64, decodeBase64 } from '../functions/_lib/core/codec.js';
 import { parseUri } from '../functions/_lib/uri/index.js';
 import { parseSubscription } from '../functions/_lib/subscribe/parse.js';
-import { renderSubscription, resolveFormat } from '../functions/_lib/output/build.js';
+import { renderClash, renderSubscription, resolveFormat } from '../functions/_lib/output/build.js';
 
 const UUID = 'b831381d-6324-4d53-ad4f-8cda48b30811';
 
@@ -58,6 +58,25 @@ test('Clash 与 Base64 使用同一套 include 筛选和重名去重', () => {
     const servers = uriNames.map((name, index) => parseUri(built.links[index]).server);
     assert.deepEqual(servers, ['1.1.1.1', '4.4.4.4', '5.5.5.5']);
     assert.deepEqual(parseYaml(built.clash)['proxy-groups'][0].proxies, clashNames);
+});
+
+test('Clash 规则输出为 rules 列表，整份文档可以解析', () => {
+    const clashConfig = { groups: [{ name: '代理', type: 'select', proxies: ['甲'] }] };
+    const single = renderClash([node('甲')], { ...clashConfig, rules: 'MATCH,代理' });
+    const singleDoc = parseYaml(single);
+    assert.deepEqual(singleDoc.rules, ['MATCH,代理']);
+    assert.equal(singleDoc['proxy-groups'][0].name, '代理');
+    assert.equal(singleDoc['proxy-groups'][0].proxies[0], '甲');
+
+    const multi = renderClash([node('甲')], { ...clashConfig, rules: 'GEOIP,CN,DIRECT\nMATCH,代理' });
+    assert.deepEqual(parseYaml(multi).rules, ['GEOIP,CN,DIRECT', 'MATCH,代理']);
+
+    const wrapped = renderClash([node('甲')], {
+        ...clashConfig,
+        rules: 'rules:\n  - GEOIP,CN,DIRECT\n  # 末尾兜底\n  - MATCH,代理\n'
+    });
+    assert.deepEqual(parseYaml(wrapped).rules, ['GEOIP,CN,DIRECT', 'MATCH,代理']);
+    assert.equal((wrapped.match(/^rules:/gm) || []).length, 1);
 });
 
 test('只给序号时也筛选，空 include 表示全选', () => {
