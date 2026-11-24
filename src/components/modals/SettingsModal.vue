@@ -24,10 +24,6 @@
         <h4 class="font-bold text-sm text-adaptive-white mb-2">关于</h4>
         <p class="text-sm text-adaptive-muted">BiaoSUB v3.0 - Cloudflare Pages + D1</p>
         <p class="text-xs text-adaptive-muted mt-1">自建节点聚合订阅管理面板</p>
-        <a href="https://github.com/dabiaogemishu/Biao-Sub" target="_blank" rel="noopener"
-          class="btn btn-sm btn-ghost gap-2 mt-2 text-primary hover:text-primary-focus">
-          <i class="fa-brands fa-github text-lg"></i> GitHub 项目地址
-        </a>
       </div>
 
       <div class="modal-action">
