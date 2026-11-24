@@ -1,7 +1,6 @@
-# Local / preview config for the existing Cloudflare Pages project.
-# Production (biaosub.pages.dev) already binds D1 "biaosub-db" as DB and
-# stores ADMIN_PASSWORD in the Pages dashboard. Do not put that password here,
-# and do not use this file to redeploy or rebind production.
+# Pages project biaosub (biaosub.pages.dev).
+# D1 binding DB is the existing database biaosub-db.
+# ADMIN_PASSWORD stays in the Pages dashboard. Do not put it in this file.
 
 name = "biaosub"
 compatibility_date = "2024-12-01"
@@ -10,4 +9,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "biaosub-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "7493fde3-e221-4a46-b11d-e6917e97ac94"
