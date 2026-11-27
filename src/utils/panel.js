@@ -19,6 +19,32 @@ export function moveItem(list, oldIndex, newIndex) {
     return next
 }
 
+// 刚写入的行可能还没出现在紧接着的列表请求里。按 id 补回，并沿用列表的 sort_order、id 顺序。
+export function mergeSavedResources(current, saved) {
+    const rows = (Array.isArray(saved) ? saved : []).filter(row => row && row.id != null && row.id !== '')
+    const list = Array.isArray(current) ? current.map(row => ({ ...row })) : []
+    if (!rows.length) return list
+    const byId = new Map(rows.map(row => [String(row.id), row]))
+    const seen = new Set(list.map(row => String(row.id)))
+    for (let index = 0; index < list.length; index++) {
+        const next = byId.get(String(list[index].id))
+        if (next) list[index] = { ...list[index], ...next }
+    }
+    const missing = rows.filter(row => !seen.has(String(row.id)))
+    for (const row of missing) {
+        const order = Number(row.sort_order ?? 0)
+        const id = Number(row.id)
+        const index = list.findIndex(item => {
+            const itemOrder = Number(item.sort_order ?? 0)
+            if (itemOrder !== order) return itemOrder > order
+            return Number(item.id) < id
+        })
+        if (index === -1) list.push(row)
+        else list.splice(index, 0, row)
+    }
+    return list
+}
+
 export function patchNodeCount(resources, id, count) {
     const row = (resources || []).find(item => String(item.id) === String(id))
     if (!row) return false

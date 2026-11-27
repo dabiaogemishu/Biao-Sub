@@ -10,6 +10,23 @@ function infoWithCount(info, count, format) {
     return JSON.stringify({ ...base, nodeCount: count, format: format || base.format || '' });
 }
 
+function createdResource(id, name, url, type, infoText, sortOrder) {
+    const numeric = Number(id);
+    if (!Number.isInteger(numeric) || numeric <= 0) return null;
+    let info = {};
+    try { info = JSON.parse(infoText || '{}'); } catch { info = {}; }
+    return {
+        id: numeric,
+        name,
+        url,
+        type,
+        params: '{}',
+        info,
+        status: 1,
+        sort_order: sortOrder
+    };
+}
+
 export function registerSubRoutes(app) {
     app.get('/subs', async (c) => {
         const { results } = await c.env.DB.prepare('SELECT * FROM subscriptions ORDER BY sort_order ASC, id DESC').all();
@@ -30,13 +47,23 @@ export function registerSubRoutes(app) {
             const stmt = c.env.DB.prepare(
                 'INSERT INTO subscriptions (name, url, type, params, info, sort_order, status) VALUES (?, ?, ?, ?, ?, 0, 1)'
             );
-            const batch = stored.links.map((link, index) => {
+            const prepared = stored.links.map((link, index) => {
                 const name = body.name ? `${body.name} ${index + 1}` : stored.parsed.nodes[index].name;
                 const single = canonicalize(link, [name]);
-                return stmt.bind(name, single.ok ? single.url : link, 'node', '{}', infoWithCount({}, 1, stored.parsed.format));
+                const url = single.ok ? single.url : link;
+                const info = infoWithCount({}, 1, stored.parsed.format);
+                return { name, url, info, stmt: stmt.bind(name, url, 'node', '{}', info) };
             });
-            await c.env.DB.batch(batch);
-            return c.json({ success: true, count: stored.parsed.nodes.length, warnings: stored.warnings });
+            const inserted = await c.env.DB.batch(prepared.map(item => item.stmt));
+            const resources = prepared.map((item, index) => createdResource(
+                inserted[index]?.meta?.last_row_id,
+                item.name,
+                item.url,
+                'node',
+                item.info,
+                0
+            )).filter(Boolean);
+            return c.json({ success: true, count: stored.parsed.nodes.length, warnings: stored.warnings, resources });
         }
         let name = body.name || stored.parsed.nodes[0].name || '未命名资源';
         if (type === 'node' && stored.parsed.nodes.length === 1 && body.name) {
@@ -46,10 +73,12 @@ export function registerSubRoutes(app) {
             name = body.name;
         }
         const sortOrder = type === 'node' ? 0 : 9999;
-        await c.env.DB.prepare(
+        const info = infoWithCount(body.info, stored.parsed.nodes.length, stored.parsed.format);
+        const inserted = await c.env.DB.prepare(
             'INSERT INTO subscriptions (name, url, type, params, info, sort_order, status) VALUES (?, ?, ?, ?, ?, ?, 1)'
-        ).bind(name, stored.url, type, '{}', infoWithCount(body.info, stored.parsed.nodes.length, stored.parsed.format), sortOrder).run();
-        return c.json({ success: true, warnings: stored.warnings, count: stored.parsed.nodes.length });
+        ).bind(name, stored.url, type, '{}', info, sortOrder).run();
+        const resources = [createdResource(inserted?.meta?.last_row_id, name, stored.url, type, info, sortOrder)].filter(Boolean);
+        return c.json({ success: true, warnings: stored.warnings, count: stored.parsed.nodes.length, resources });
     });
 
     app.put('/subs/:id', async (c) => {
