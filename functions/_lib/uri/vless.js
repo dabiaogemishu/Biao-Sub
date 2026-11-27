@@ -1,6 +1,6 @@
 import { decodeHash, encodeName, shareUrl } from '../core/codec.js';
 import { createNode, formatHost } from '../core/model.js';
-import { applyShareParams, writeShareParams } from './share.js';
+import { applyShareParams, inheritSharePath, writeShareParams } from './share.js';
 
 export function parseVless(uri) {
     const raw = uri.trim();
@@ -9,6 +9,7 @@ export function parseVless(uri) {
     if (!url) throw new Error('VLESS 链接格式无效');
     const uuid = decodeURIComponent(url.username || '');
     if (!uuid) throw new Error('VLESS 缺少 UUID');
+    inheritSharePath(url);
     const node = createNode({
         type: 'vless',
         name: decodeHash(url.hash),

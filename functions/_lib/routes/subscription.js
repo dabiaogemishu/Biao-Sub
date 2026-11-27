@@ -10,20 +10,22 @@ function infoWithCount(info, count, format) {
     return JSON.stringify({ ...base, nodeCount: count, format: format || base.format || '' });
 }
 
-function createdResource(id, name, url, type, infoText, sortOrder) {
+export function createdResource(id, name, url, type, infoText, sortOrder, extra = {}) {
     const numeric = Number(id);
     if (!Number.isInteger(numeric) || numeric <= 0) return null;
     let info = {};
     try { info = JSON.parse(infoText || '{}'); } catch { info = {}; }
+    const { params, ...rest } = extra && typeof extra === 'object' ? extra : {};
     return {
         id: numeric,
         name,
         url,
         type,
-        params: '{}',
+        params: params || '{}',
         info,
         status: 1,
-        sort_order: sortOrder
+        sort_order: sortOrder,
+        ...rest
     };
 }
 

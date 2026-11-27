@@ -57,7 +57,7 @@
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
-import { failureText } from '../../utils/panel.js'
+import { failureText, mergeSavedResources } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -90,7 +90,13 @@ async function submitRemote() {
         store.remoteModal.url = ''
         store.remoteModal.name = ''
         store.remoteModal.error = ''
+        if (Array.isArray(res.resources) && res.resources.length) {
+          store.resources = mergeSavedResources(store.resources, res.resources)
+        }
         await loadResources()
+        if (Array.isArray(res.resources) && res.resources.length) {
+          store.resources = mergeSavedResources(store.resources, res.resources)
+        }
       } else {
         showRemoteError(failureText(res, res && res.status, '导入失败'))
       }

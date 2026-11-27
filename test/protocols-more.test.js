@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseUri, toUri, toPublicNode } from '../functions/_lib/uri/index.js';
 import { parseSubscription } from '../functions/_lib/subscribe/parse.js';
+import { shareUrl } from '../functions/_lib/core/codec.js';
 import { renderBase64, renderClash } from '../functions/_lib/output/build.js';
 
 const PRIVATE_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
@@ -159,4 +160,41 @@ test('parseSubscription 能识别新增分享链接，带路径的 http 会提�
         assert.equal(rejected.nodes.length, 0);
         assert.match(rejected.errors[0].message, /这不是 HTTP 代理节点。带路径的地址请当作订阅链接，用远程导入/);
     }
+});
+
+test('shareUrl 会把路径从主机名里拆出来，IPv6 带路径也能识别', () => {
+    const withPath = shareUrl('https://example.com:443/api/sub');
+    assert.equal(withPath.hostname, 'example.com');
+    assert.equal(withPath.port, '443');
+    assert.equal(withPath.pathname, '/api/sub');
+
+    const ipv6 = shareUrl('https://[2001:db8::1]:443/api/sub');
+    assert.equal(ipv6.hostname, '2001:db8::1');
+    assert.equal(ipv6.port, '443');
+    assert.equal(ipv6.pathname, '/api/sub');
+
+    const bare = shareUrl('http://203.0.113.9:8080#http');
+    assert.equal(bare.hostname, '203.0.113.9');
+    assert.equal(bare.port, '8080');
+    assert.equal(bare.pathname, '');
+});
+
+test('带路径的 IPv6 http(s) 会提示远程导入，路径写在 URL 里的 vless/trojan 仍能解析', () => {
+    for (const line of ['https://[2001:db8::1]/sub/path', 'https://[2001:db8::1]:443/api/sub']) {
+        const rejected = parseSubscription(line);
+        assert.equal(rejected.nodes.length, 0);
+        assert.match(rejected.errors[0].message, /这不是 HTTP 代理节点。带路径的地址请当作订阅链接，用远程导入/);
+    }
+
+    const uuid = 'b831381d-6324-4d53-ad4f-8cda48b30811';
+    const vless = parseUri(`vless://${uuid}@203.0.113.20:443/path?type=ws&security=tls&host=example.com#path-in-url`);
+    assert.equal(vless.server, '203.0.113.20');
+    assert.equal(vless.port, 443);
+    assert.equal(vless.network, 'ws');
+    assert.equal(vless.ws.path, '/path');
+    assert.equal(vless.ws.host, 'example.com');
+
+    const trojan = parseUri('trojan://secret@203.0.113.21:443/ws?security=tls&type=ws&host=example.com#path-in-url');
+    assert.equal(trojan.server, '203.0.113.21');
+    assert.equal(trojan.ws.path, '/ws');
 });

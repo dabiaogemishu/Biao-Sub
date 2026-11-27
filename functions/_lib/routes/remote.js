@@ -2,6 +2,7 @@ import { parseJson } from '../core/model.js';
 import { loadProxy } from '../proxy-settings.js';
 import { fetchSubscription, performRemoteRefresh } from '../remote-service.js';
 import { canonicalize } from '../subscribe/store.js';
+import { createdResource } from './subscription.js';
 
 export function registerRemoteRoutes(app) {
     app.post('/remote', async (c) => {
@@ -16,10 +17,19 @@ export function registerRemoteRoutes(app) {
             if (!stored.ok) return c.json({ success: false, error: stored.error }, 422);
             const name = body.name || subInfo.fileName || `远程订阅 (${stored.parsed.nodes.length}个节点)`;
             const info = { ...subInfo, nodeCount: stored.parsed.nodes.length, format: stored.parsed.format };
-            await c.env.DB.prepare(
+            const inserted = await c.env.DB.prepare(
                 'INSERT INTO subscriptions (name, url, source_url, type, params, info, snapshot, sort_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, 9999, 1)'
             ).bind(name, stored.url, sourceUrl, 'remote', JSON.stringify({ ua }), JSON.stringify(info), '').run();
-            return c.json({ success: true, data: { name, nodeCount: stored.parsed.nodes.length, subInfo: info }, warnings: stored.warnings });
+            const resources = [createdResource(
+                inserted?.meta?.last_row_id,
+                name,
+                stored.url,
+                'remote',
+                JSON.stringify(info),
+                9999,
+                { source_url: sourceUrl, params: JSON.stringify({ ua }) }
+            )].filter(Boolean);
+            return c.json({ success: true, data: { name, nodeCount: stored.parsed.nodes.length, subInfo: info }, warnings: stored.warnings, resources });
         } catch (error) {
             return c.json({ success: false, error: error.message }, 502);
         }

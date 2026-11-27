@@ -1,6 +1,6 @@
 import { decodeBase64, encodeBase64, decodeHash, encodeName, shareUrl } from '../core/codec.js';
 import { createNode, formatHost } from '../core/model.js';
-import { applyShareParams, writeShareParams } from './share.js';
+import { applyShareParams, inheritSharePath, writeShareParams } from './share.js';
 
 function applyNet(node, config) {
     const net = String(config.net || 'tcp').toLowerCase();
@@ -78,6 +78,7 @@ export function parseVmess(uri) {
         if (!url) throw new Error('VMess 链接格式无效');
         const uuid = decodeURIComponent(url.username || '');
         if (!uuid) throw new Error('VMess 缺少 UUID');
+        inheritSharePath(url);
         const node = createNode({
             type: 'vmess',
             name: nameHint,

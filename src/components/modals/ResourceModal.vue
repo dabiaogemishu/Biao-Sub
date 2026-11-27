@@ -56,7 +56,7 @@
         <p v-if="previewing" class="text-xs text-adaptive-muted mt-2">正在识别…</p>
         <p v-if="importError" class="text-xs text-error mt-2">{{ importError }}</p>
         <div v-if="importNodes.length" class="mt-3 space-y-4">
-          <p class="text-xs text-adaptive-muted">识别到 {{ importCount }} 个节点。下面同时给出 YAML 和 JSON。</p>
+          <p class="text-xs text-adaptive-muted">识别到 {{ importCount }} 个节点。下面同时给出 YAML 和 JSON。<span v-if="hiddenCount">仅预览前 {{ previewLimit }} 个，其余 {{ hiddenCount }} 个保存时仍会导入。</span></p>
           <div v-for="(node, i) in importNodes" :key="i" class="rounded-lg border border-panel-border p-3">
             <p class="text-sm text-adaptive-white mb-2">{{ node.name || '未命名' }} · {{ node.protocol || node.type }}</p>
             <p v-if="node.note" class="text-xs text-warning mb-2">{{ node.note }}</p>
@@ -92,13 +92,15 @@ import { ref, watch } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
-import { mergeSavedResources } from '../../utils/panel.js'
+import { importPreviewState, mergeSavedResources } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const nameError = ref(false)
 const importNodes = ref([])
 const importCount = ref(0)
+const hiddenCount = ref(0)
+const previewLimit = 3
 const importError = ref('')
 const previewing = ref(false)
 let previewTimer = null
@@ -107,6 +109,7 @@ let previewSeq = 0
 function clearPreview() {
   importNodes.value = []
   importCount.value = 0
+  hiddenCount.value = 0
   importError.value = ''
   previewing.value = false
 }
@@ -131,6 +134,7 @@ function schedulePreview(value) {
   }
   importNodes.value = []
   importCount.value = 0
+  hiddenCount.value = 0
   importError.value = ''
   previewing.value = true
   previewTimer = setTimeout(() => refreshImportPreview(text, seq), 250)
@@ -140,14 +144,16 @@ async function refreshImportPreview(text, seq) {
   try {
     const res = await authFetch(`${API}/check`, { method: 'POST', body: { url: text } })
     if (seq !== previewSeq) return
-    const nodes = res.data?.nodes || []
-    importCount.value = nodes.length
-    importNodes.value = nodes.slice(0, 3)
-    importError.value = nodes.length ? '' : (res.error || '没有识别出节点')
+    const preview = importPreviewState(res.data?.nodes || [], res.error || '没有识别出节点', previewLimit)
+    importCount.value = preview.count
+    importNodes.value = preview.nodes
+    hiddenCount.value = preview.hidden
+    importError.value = preview.error
   } catch (error) {
     if (seq !== previewSeq) return
     importNodes.value = []
     importCount.value = 0
+    hiddenCount.value = 0
     importError.value = error.message || '识别失败'
   } finally {
     if (seq === previewSeq) previewing.value = false

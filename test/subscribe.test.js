@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { encodeBase64 } from '../functions/_lib/core/codec.js';
-import { parseSubscription } from '../functions/_lib/subscribe/parse.js';
+import { parseSubscription, splitUriList } from '../functions/_lib/subscribe/parse.js';
 
 const UUID = 'b831381d-6324-4d53-ad4f-8cda48b30811';
 
@@ -129,4 +129,19 @@ test('原始 URI 列表，以及解不了时给出明确错误', () => {
 
     assert.match(parseSubscription('').errors[0].message, /内容为空/);
     assert.match(parseSubscription('这不是订阅').errors[0].message, /无法识别/);
+});
+
+test('节点名里的官网地址不会被拆成第二条链接，同行的真实节点仍会拆开', () => {
+    const user = encodeBase64('aes-256-gcm:secret').replace(/=+$/, '');
+    const named = `ss://${user}@203.0.113.10:8388#via https://example.com`;
+    assert.deepEqual(splitUriList(named), [named]);
+    const parsed = parseSubscription(named);
+    assert.equal(parsed.nodes.length, 1);
+    assert.equal(parsed.nodes[0].name, 'via https://example.com');
+    assert.equal(parsed.nodes[0].server, '203.0.113.10');
+
+    const two = splitUriList(`ss://${user}@203.0.113.10:8388#甲 http://203.0.113.9:8080#乙`);
+    assert.equal(two.length, 2);
+    assert.match(two[0], /^ss:\/\//);
+    assert.match(two[1], /^http:\/\//);
 });

@@ -55,3 +55,15 @@ export function patchNodeCount(resources, id, count) {
     row.info = { ...(info && typeof info === 'object' ? info : {}), nodeCount: count }
     return true
 }
+
+export function importPreviewState(nodes, error, limit = 3) {
+    const list = Array.isArray(nodes) ? nodes : []
+    const cap = Number(limit)
+    const size = Number.isInteger(cap) && cap > 0 ? cap : 3
+    return {
+        count: list.length,
+        nodes: list.slice(0, size),
+        hidden: Math.max(0, list.length - size),
+        error: list.length ? '' : (error || '没有识别出节点')
+    }
+}

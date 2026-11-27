@@ -1,5 +1,5 @@
 import { parse as parseYaml } from 'yaml';
-import { tryDecodeBase64 } from '../core/codec.js';
+import { shareUrl, tryDecodeBase64 } from '../core/codec.js';
 import { summarizeErrors } from '../core/model.js';
 import { protocolOf, parseUri, URI_SCHEME_SOURCE } from '../uri/index.js';
 import { clashProxyToNode } from '../clash/convert.js';
@@ -23,21 +23,41 @@ function unwrap(text) {
     return current;
 }
 
+// 节点名里常有官网地址。# 后面的 http(s) 若不像代理节点，就留在名称里，不拆成第二条链接。
+function isWebsiteInName(line, uriStart, nextStart, schemeMatch) {
+    const hash = line.indexOf('#', uriStart);
+    if (hash < 0 || nextStart <= hash) return false;
+    const scheme = String(schemeMatch || '').replace(/:\/\/$/, '').toLowerCase();
+    if (scheme !== 'http' && scheme !== 'https') return false;
+    const url = shareUrl(line.slice(nextStart));
+    if (!url) return true;
+    if (url.pathname) return true;
+    if (!url.port && !url.username) return true;
+    return false;
+}
+
 export function splitUriList(text) {
     const links = [];
     const lines = String(text || '').split(/\r?\n/);
+    const schemeRe = new RegExp(SCHEME_SOURCE, 'gi');
     for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
-        const marks = [...trimmed.matchAll(new RegExp(SCHEME_SOURCE, 'gi'))];
+        const marks = [...trimmed.matchAll(schemeRe)];
         if (marks.length === 0) continue;
         if (marks.length === 1) {
             links.push(trimmed.slice(marks[0].index).trim());
             continue;
         }
-        for (let i = 0; i < marks.length; i++) {
-            const start = marks[i].index;
-            const end = i + 1 < marks.length ? marks[i + 1].index : trimmed.length;
+        const starts = [];
+        for (const mark of marks) {
+            const prev = starts.length ? starts[starts.length - 1] : mark.index;
+            if (starts.length && isWebsiteInName(trimmed, prev, mark.index, mark[0])) continue;
+            starts.push(mark.index);
+        }
+        for (let i = 0; i < starts.length; i++) {
+            const start = starts[i];
+            const end = i + 1 < starts.length ? starts[i + 1] : trimmed.length;
             const piece = trimmed.slice(start, end).trim();
             if (piece) links.push(piece);
         }

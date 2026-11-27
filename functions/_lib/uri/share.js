@@ -7,6 +7,12 @@ function hostOf(headers) {
     return String(value || '');
 }
 
+export function inheritSharePath(url) {
+    if (!url?.searchParams || url.searchParams.get('path')) return;
+    const path = url.pathname || '';
+    if (path && path !== '/') url.searchParams.set('path', path);
+}
+
 export function applyShareParams(node, params) {
     let net = (params.get('type') || params.get('network') || node.network || 'tcp').toLowerCase();
     if (net === 'splithttp') net = 'xhttp';

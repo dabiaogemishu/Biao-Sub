@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { failureText, mergeSavedResources, moveItem, patchNodeCount, subscriptionLinks } from '../src/utils/panel.js';
+import { failureText, importPreviewState, mergeSavedResources, moveItem, patchNodeCount, subscriptionLinks } from '../src/utils/panel.js';
 
 test('失败响应优先用服务端错误，否则带上 HTTP 状态', () => {
     assert.equal(failureText({ success: false, error: '拉取失败' }, 502), '拉取失败');
@@ -36,4 +36,16 @@ test('保存后立刻改资源上的节点数', () => {
     const resources = [{ id: '4', info: '{"nodeCount":2}' }];
     assert.equal(patchNodeCount(resources, 4, 1), true);
     assert.equal(resources[0].info.nodeCount, 1);
+});
+
+test('importPreviewState 只展示前几个节点，并说明其余仍会导入', () => {
+    const many = importPreviewState([{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }], '没有识别出节点');
+    assert.equal(many.count, 4);
+    assert.deepEqual(many.nodes.map(item => item.name), ['a', 'b', 'c']);
+    assert.equal(many.hidden, 1);
+    assert.equal(many.error, '');
+    const empty = importPreviewState([], '内容为空');
+    assert.equal(empty.count, 0);
+    assert.equal(empty.hidden, 0);
+    assert.equal(empty.error, '内容为空');
 });

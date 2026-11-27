@@ -9,7 +9,8 @@ function userPass(url) {
 }
 
 function rejectPath(url, message) {
-    if (String(url.hostname || '').includes('/')) throw new Error(message);
+    const path = String(url.pathname || '');
+    if (path || String(url.hostname || '').includes('/')) throw new Error(message);
 }
 
 export function parseSocks(uri) {
@@ -52,7 +53,8 @@ export function parseHttpProxy(uri) {
     if (!tls && !lower.startsWith('http://')) throw new Error('不是 HTTP 代理链接');
     const url = shareUrl(raw);
     if (!url) throw new Error('HTTP 代理链接格式无效');
-    if (String(url.hostname).includes('/')) {
+    const path = String(url.pathname || '');
+    if (path || String(url.hostname || '').includes('/')) {
         throw new Error('这不是 HTTP 代理节点。带路径的地址请当作订阅链接，用远程导入');
     }
     const account = userPass(url);

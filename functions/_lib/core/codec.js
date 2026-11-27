@@ -80,21 +80,39 @@ export function shareUrl(uri) {
     if (!rest) return null;
     let hostname = '';
     let port = '';
+    let pathname = '';
     if (rest.startsWith('[')) {
         const end = rest.indexOf(']');
         if (end < 0) return null;
         hostname = rest.slice(1, end);
         const tail = rest.slice(end + 1);
-        if (tail.startsWith(':')) port = tail.slice(1);
-        else if (tail) return null;
+        if (tail.startsWith(':')) {
+            const portAndPath = tail.slice(1);
+            const slash = portAndPath.indexOf('/');
+            if (slash >= 0) {
+                port = portAndPath.slice(0, slash);
+                pathname = portAndPath.slice(slash);
+            } else {
+                port = portAndPath;
+            }
+        } else if (tail.startsWith('/')) {
+            pathname = tail;
+        } else if (tail) return null;
     } else {
-        const colon = rest.lastIndexOf(':');
-        if (colon > 0 && /^\d+$/.test(rest.slice(colon + 1))) {
-            hostname = rest.slice(0, colon);
-            port = rest.slice(colon + 1);
-        } else hostname = rest;
+        const slash = rest.indexOf('/');
+        let hostport = rest;
+        if (slash >= 0) {
+            pathname = rest.slice(slash);
+            hostport = rest.slice(0, slash);
+        }
+        const colon = hostport.lastIndexOf(':');
+        if (colon > 0 && /^\d+$/.test(hostport.slice(colon + 1))) {
+            hostname = hostport.slice(0, colon);
+            port = hostport.slice(colon + 1);
+        } else hostname = hostport;
     }
     if (!hostname) return null;
+    if (port && !/^\d+$/.test(port)) return null;
     const colon = userinfo.indexOf(':');
     const username = colon >= 0 ? userinfo.slice(0, colon) : userinfo;
     const password = colon >= 0 ? userinfo.slice(colon + 1) : '';
@@ -103,6 +121,7 @@ export function shareUrl(uri) {
         password,
         hostname,
         port,
+        pathname,
         searchParams: new URLSearchParams(query),
         hash: fragment ? `#${fragment}` : ''
     };

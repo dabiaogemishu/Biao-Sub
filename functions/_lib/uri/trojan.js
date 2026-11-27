@@ -1,6 +1,6 @@
 import { decodeHash, encodeName, shareUrl } from '../core/codec.js';
 import { createNode, formatHost } from '../core/model.js';
-import { applyShareParams, writeShareParams } from './share.js';
+import { applyShareParams, inheritSharePath, writeShareParams } from './share.js';
 
 export function parseTrojan(uri) {
     const raw = uri.trim();
@@ -9,6 +9,7 @@ export function parseTrojan(uri) {
     if (!url) throw new Error('Trojan 链接格式无效');
     const password = decodeURIComponent(url.username || '');
     if (!password) throw new Error('Trojan 缺少密码');
+    inheritSharePath(url);
     const node = createNode({
         type: 'trojan',
         name: decodeHash(url.hash),
