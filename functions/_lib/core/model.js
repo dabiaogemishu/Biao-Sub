@@ -46,7 +46,17 @@ export function createNode(partial) {
         token: partial.token || '',
         encryption: partial.encryption || '',
         pinSha256: partial.pinSha256 || '',
-        auth: partial.auth || ''
+        auth: partial.auth || '',
+        username: partial.username == null ? '' : String(partial.username),
+        privateKey: partial.privateKey == null ? '' : String(partial.privateKey),
+        publicKey: partial.publicKey == null ? '' : String(partial.publicKey),
+        presharedKey: partial.presharedKey == null ? '' : String(partial.presharedKey),
+        address: partial.address == null ? '' : String(partial.address),
+        mtu: partial.mtu ? Number(partial.mtu) : 0,
+        reserved: partial.reserved == null ? '' : String(partial.reserved),
+        version: partial.version == null ? '' : String(partial.version),
+        hostKey: partial.hostKey == null ? '' : String(partial.hostKey),
+        kcp: partial.kcp || null
     };
 }
 

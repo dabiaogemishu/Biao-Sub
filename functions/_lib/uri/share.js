@@ -66,6 +66,14 @@ export function applyShareParams(node, params) {
         };
     } else if (net === 'h2' || net === 'http') {
         node.http = { path, host, method: params.get('method') || 'GET' };
+    } else if (net === 'kcp' || net === 'mkcp') {
+        node.network = 'kcp';
+        node.kcp = {
+            headerType: params.get('headerType') || params.get('header') || 'none',
+            seed: params.get('seed') || ''
+        };
+    } else if (net === 'hysteria') {
+        node.network = 'hysteria';
     }
     return node;
 }
@@ -116,6 +124,9 @@ export function writeShareParams(params, node) {
     } else if ((net === 'http' || net === 'h2') && node.http) {
         if (node.http.path) params.set('path', node.http.path);
         if (node.http.host) params.set('host', node.http.host);
+    } else if (net === 'kcp') {
+        if (node.kcp?.headerType) params.set('headerType', node.kcp.headerType);
+        if (node.kcp?.seed) params.set('seed', node.kcp.seed);
     }
 }
 

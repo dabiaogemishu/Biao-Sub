@@ -19,19 +19,32 @@ BiaoSUB 是自建的订阅聚合面板。把自建节点链接和机场订阅地
 
 支持这些分享链接，并转成 Clash Meta 代理：
 
+对照的是 sing-box 1.14.5 的出站/端点文档，以及 Xray-core v26.11.9 的协议和传输表。节点预览和导入框会同时给出 Clash Meta YAML 和 sing-box 出站 JSON；Xray 才有的传输（XHTTP、mKCP、把 Hysteria 当作传输）改标成 Xray 出站 JSON。
+
 | 协议 | 说明 |
 | --- | --- |
 | Shadowsocks | SIP002、旧版整段 Base64。加密方法按链接原样保留，包括 `2022-blake3-aes-128-gcm` 这类 2022 套件。插件支持 `obfs` / `obfs-local` 和 `v2ray-plugin`。 |
-| ShadowsocksR | `ssr://` |
-| VMess | JSON 的 Base64，以及带查询参数的 URL |
-| VLESS | TLS、Reality。传输包括 TCP、WebSocket、gRPC、HTTPUpgrade、XHTTP |
-| Trojan | TLS，可带传输 |
-| Hysteria2 | `hysteria2://`、`hy2://`、`hy://` |
+| ShadowsocksR | `ssr://`。Clash 能写出；sing-box 1.14 和 Xray v26.11.9 都没有 SSR 出站，JSON 只作对照。 |
+| VMess | v2rayN JSON Base64，以及 `uuid@host` 分享链接。传输包括 TCP、WebSocket、gRPC、HTTP、H2、HTTPUpgrade、XHTTP、mKCP。 |
+| VLESS | TLS、Reality、`encryption` 原文保留。传输同 VMess，含 `xtls-rprx-vision`。 |
+| Trojan | TLS，可选 Reality，传输同 VMess。 |
+| Hysteria2 | `hysteria2://`、`hy2://`、`hy://`，含 salamander 和端口跳跃。 |
 | Hysteria v1 | `hysteria://` |
 | TUIC | UUID + 密码，或 token |
 | AnyTLS | `anytls://` |
+| WireGuard | `wireguard://`、`wg://`，以及 Clash `type: wireguard`。sing-box 1.14 里它是端点，JSON 按端点写。 |
+| SOCKS | `socks5://`、`socks://` 写入 Clash `socks5`。`socks4://` 能解析和出现在 Base64，Clash 订阅会跳过。 |
+| HTTP 代理 | `http://`、`https://` 的主机和端口。带路径的地址仍当作订阅链接，不会收成节点。 |
+| Snell | `snell://`，version 4 和 6。sing-box 不单独实现 v5 的 QUIC，按它自己的说明把 v5 看成 v4。 |
+| SSH | `ssh://` |
+| ShadowTLS | `shadowtls://`。只进 sing-box JSON 和 Base64，Clash Meta 没有这个类型。 |
+| NaiveProxy | `naive+https://`、`naive+quic://`。同样不进 Clash Meta。 |
 
-认不出的协议或残缺字段会返回明确错误，不会变成一个空节点。一份订阅里只有几条坏链接时，好的留下，坏的出现在错误列表里。不支持 WireGuard，也不执行订阅里的脚本。
+mKCP，以及把 Hysteria 当作 VMess/VLESS/Trojan 的传输时，分享链接和 Base64 会保留，Clash YAML 会跳过并在文件头写明原因。
+
+认不出的协议或残缺字段会返回明确错误，不会变成一个空节点。一份订阅里只有几条坏链接时，好的留下，坏的出现在错误列表里。不执行订阅里的脚本。
+
+下面这些当前核心里有，但没有稳定的单条分享链接，面板不把它们收成节点：OpenVPN、OpenConnect、MASQUE、Tailcat、Tor、DNS 出站。系统设置里的 SOCKS5 只用来拉远程订阅，不是节点类型。
 
 导入可以是 Clash Meta YAML、标准 Base64 节点列表，或一行一个的原始 URI。
 

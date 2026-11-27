@@ -79,6 +79,11 @@ test('ss SIP002、旧版 Base64 和插件', () => {
     assert.equal(plugin.plugin, 'obfs');
     assert.equal(plugin.pluginOpts.mode, 'http');
     assert.equal(plugin.pluginOpts.host, 'www.example.com');
+
+    const v2ray = roundtrip('ss://' + encodeBase64('aes-128-gcm:pass').replace(/=+$/, '') + '@1.2.3.4:443?plugin=v2ray-plugin%3Bmode%3Dwebsocket%3Bhost%3Dexample.com%3Bpath%3D%2Fss%3Btls#v2');
+    assert.equal(v2ray.plugin, 'v2ray-plugin');
+    assert.equal(v2ray.pluginOpts.path, '/ss');
+    assert.equal(v2ray.pluginOpts.tls, true);
 });
 
 test('ssr', () => {
@@ -88,6 +93,21 @@ test('ssr', () => {
     assert.equal(node.obfs, 'tls1.2_ticket_auth');
     assert.equal(node.password, 'ssr-pass');
     assert.equal(node.obfsParam, 'example.com');
+});
+
+test('vmess uuid 分享链接、http 传输和 mKCP', () => {
+    const share = roundtrip(`vmess://${UUID}@1.2.3.4:443?encryption=auto&security=tls&type=http&path=%2Fv&host=example.com&sni=example.com#share`);
+    assert.equal(share.network, 'http');
+    assert.equal(share.http.path, '/v');
+    assert.equal(share.uuid, UUID);
+
+    const kcp = parseUri(`vmess://${UUID}@1.2.3.4:2000?encryption=auto&security=none&type=kcp&headerType=srtp&seed=seed-a#kcp`);
+    const again = parseUri(toUri(kcp));
+    assert.equal(again.network, 'kcp');
+    assert.equal(again.kcp.headerType, 'srtp');
+    assert.equal(again.kcp.seed, 'seed-a');
+    const yaml = renderClash([kcp], {});
+    assert.match(yaml, /mKCP 无法写入 Clash Meta/);
 });
 
 test('vmess ws 与 grpc', () => {
@@ -144,6 +164,15 @@ test('trojan、hysteria2、hysteria、tuic、anytls', () => {
     const trojan = roundtrip('trojan://s%40cret@1.2.3.4:8443?security=tls&sni=example.com&type=ws&path=%2Ftj&host=example.com#tj');
     assert.equal(trojan.password, 's@cret');
     assert.equal(trojan.network, 'ws');
+
+    const reality = roundtrip(`trojan://pass@1.2.3.4:443?security=reality&sni=www.microsoft.com&fp=chrome&pbk=abc&sid=0123&type=grpc&serviceName=Gun#tr`);
+    assert.equal(reality.security, 'reality');
+    assert.equal(reality.reality.publicKey, 'abc');
+    assert.equal(reality.network, 'grpc');
+
+    const httpUpgrade = roundtrip('trojan://pass@1.2.3.4:443?security=tls&type=httpupgrade&path=%2Fup&host=example.com&sni=example.com#up');
+    assert.equal(httpUpgrade.network, 'httpupgrade');
+    assert.equal(httpUpgrade.httpupgrade.path, '/up');
 
     const hy2 = roundtrip('hy2://authpass@1.2.3.4:443?sni=example.com&obfs=salamander&obfs-password=obfs-pass&mport=20000-40000&insecure=1#hy2');
     assert.equal(hy2.type, 'hysteria2');

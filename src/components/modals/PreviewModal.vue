@@ -39,9 +39,10 @@
 
       <!-- 节点列表 -->
       <div ref="previewListRef" class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-2">
-        <div v-for="(node, i) in store.previewModal.nodes" :key="node.link || i"
-          class="flex items-center gap-3 p-3 rounded-lg bg-adaptive-input border border-panel-border hover:border-primary/30 transition-all"
+        <div v-for="(node, i) in store.previewModal.nodes" :key="i"
+          class="p-3 rounded-lg bg-adaptive-input border border-panel-border hover:border-primary/30 transition-all"
           :data-index="i">
+          <div class="flex items-center gap-3">
           <!-- 批量选择复选框 -->
           <div v-if="deleteMode" class="flex-shrink-0">
             <input type="checkbox" class="checkbox checkbox-error checkbox-sm"
@@ -61,12 +62,33 @@
             class="input input-bordered input-sm bg-adaptive-input flex-1 text-sm" />
           <!-- 操作按钮 -->
           <div class="flex gap-1 flex-shrink-0">
+            <button type="button" @click="toggleFormat(i)" class="btn btn-ghost btn-xs">
+              {{ openFormat === i ? '收起' : 'JSON / YAML' }}
+            </button>
             <button @click="copyNode(node)" class="btn btn-ghost btn-xs tooltip" data-tip="复制链接">
               <i class="fa-solid fa-copy"></i>
             </button>
             <button v-if="!deleteMode" @click="deleteSingleNode(i)" class="btn btn-ghost btn-xs text-error tooltip" data-tip="删除">
               <i class="fa-solid fa-trash"></i>
             </button>
+          </div>
+          </div>
+          <div v-if="openFormat === i" class="mt-3 space-y-2">
+            <p v-if="node.note" class="text-xs text-warning">{{ node.note }}</p>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-adaptive-muted">{{ node.yamlLabel || 'YAML' }}</span>
+                <button type="button" class="btn btn-ghost btn-xs" @click="copyText(node.yaml || '')">复制</button>
+              </div>
+              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.yaml || '没有 YAML' }}</pre>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs text-adaptive-muted">{{ node.jsonLabel || 'JSON' }}</span>
+                <button type="button" class="btn btn-ghost btn-xs" @click="copyText(node.json || '')">复制</button>
+              </div>
+              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.json || '没有 JSON' }}</pre>
+            </div>
           </div>
         </div>
       </div>
@@ -104,6 +126,7 @@ const deleteMode = ref(false)
 const selectedNodes = ref([])
 const saving = ref(false)
 const changed = ref(false)
+const openFormat = ref(-1)
 let sortableInstance = null
 
 const hasChanges = computed(() => {
@@ -205,6 +228,10 @@ function batchDeleteNodes() {
 }
 
 // === 复制 ===
+function toggleFormat(index) {
+  openFormat.value = openFormat.value === index ? -1 : index
+}
+
 function copyNode(node) {
   copyText(node.link || '')
 }
@@ -219,6 +246,7 @@ function closePreview() {
   store.previewModal.show = false
   store.previewModal.sortMode = false
   store.previewModal.editMode = false
+  openFormat.value = -1
   deleteMode.value = false
   selectedNodes.value = []
   changed.value = false

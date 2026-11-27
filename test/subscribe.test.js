@@ -120,9 +120,12 @@ test('原始 URI 列表，以及解不了时给出明确错误', () => {
     assert.equal(yaml.nodes.length, 0);
     assert.match(yaml.errors[0].message, /Trojan 缺少 password/);
 
-    const unknown = parseSubscription(`proxies:\n  - {name: wg, type: wireguard, server: 1.1.1.1, port: 51820}\n`);
+    const unknown = parseSubscription(`proxies:\n  - {name: ovpn, type: openvpn, server: 1.1.1.1, port: 1194}\n`);
     assert.equal(unknown.nodes.length, 0);
-    assert.match(unknown.errors[0].message, /wireguard/);
+    assert.match(unknown.errors[0].message, /openvpn/);
+    const wg = parseSubscription(`proxies:\n  - {name: wg, type: wireguard, server: 1.1.1.1, port: 51820}\n`);
+    assert.equal(wg.nodes.length, 0);
+    assert.match(wg.errors[0].message, /缺少私钥/);
 
     assert.match(parseSubscription('').errors[0].message, /内容为空/);
     assert.match(parseSubscription('这不是订阅').errors[0].message, /无法识别/);

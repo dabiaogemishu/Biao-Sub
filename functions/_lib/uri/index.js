@@ -1,3 +1,4 @@
+import { nodeViews } from '../preview/view.js';
 import { parseSs, generateSs } from './ss.js';
 import { parseSsr, generateSsr } from './ssr.js';
 import { parseVmess, generateVmess } from './vmess.js';
@@ -6,6 +7,15 @@ import { parseTrojan, generateTrojan } from './trojan.js';
 import { parseHysteria, parseHysteria2, generateHysteria, generateHysteria2 } from './hysteria.js';
 import { parseTuic, generateTuic } from './tuic.js';
 import { parseAnytls, generateAnytls } from './anytls.js';
+import { parseWireguard, generateWireguard } from './wireguard.js';
+import {
+    parseSocks, generateSocks,
+    parseHttpProxy, generateHttpProxy,
+    parseSsh, generateSsh,
+    parseSnell, generateSnell,
+    parseShadowtls, generateShadowtls,
+    parseNaive, generateNaive
+} from './plain.js';
 
 const PARSERS = [
     ['ssr', parseSsr],
@@ -18,6 +28,18 @@ const PARSERS = [
     ['hysteria', parseHysteria],
     ['tuic', parseTuic],
     ['anytls', parseAnytls],
+    ['wireguard', parseWireguard],
+    ['wg', parseWireguard],
+    ['shadowtls', parseShadowtls],
+    ['snell', parseSnell],
+    ['socks5', parseSocks],
+    ['socks4a', parseSocks],
+    ['socks4', parseSocks],
+    ['socks', parseSocks],
+    ['ssh', parseSsh],
+    ['naive', parseNaive],
+    ['https', parseHttpProxy],
+    ['http', parseHttpProxy],
     ['ss', parseSs]
 ];
 
@@ -30,11 +52,20 @@ const GENERATORS = {
     hysteria2: generateHysteria2,
     hysteria: generateHysteria,
     tuic: generateTuic,
-    anytls: generateAnytls
+    anytls: generateAnytls,
+    wireguard: generateWireguard,
+    socks: generateSocks,
+    http: generateHttpProxy,
+    ssh: generateSsh,
+    snell: generateSnell,
+    shadowtls: generateShadowtls,
+    naive: generateNaive
 };
 
 export function protocolOf(uri) {
-    const match = String(uri || '').trim().toLowerCase().match(/^(ssr|vmess|vless|trojan|hysteria2|hysteria|hy2|hy|tuic|anytls|ss):\/\//);
+    const text = String(uri || '').trim().toLowerCase();
+    if (text.startsWith('naive+https://') || text.startsWith('naive+quic://')) return 'naive';
+    const match = text.match(/^(ssr|vmess|vless|trojan|hysteria2|hysteria|hy2|hy|tuic|anytls|wireguard|wg|shadowtls|snell|socks5|socks4a|socks4|socks|ssh|https|http|ss):\/\//);
     return match ? match[1] : '';
 }
 
@@ -56,6 +87,7 @@ export function toUri(node) {
 export function toPublicNode(node) {
     let link = '';
     try { link = toUri(node); } catch { link = ''; }
+    const views = nodeViews(node);
     return {
         name: node.name,
         type: node.type,
@@ -64,6 +96,11 @@ export function toPublicNode(node) {
         port: node.port,
         network: node.network,
         security: node.security,
-        link
+        link,
+        yaml: views.yaml,
+        yamlLabel: views.yamlLabel,
+        json: views.json,
+        jsonLabel: views.jsonLabel,
+        note: views.note
     };
 }

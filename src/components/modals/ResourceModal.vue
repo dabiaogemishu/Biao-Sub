@@ -49,9 +49,21 @@
         <label class="label"><span class="label-text text-adaptive-muted">内容</span></label>
         <textarea v-model="store.resourceForm.url" rows="5"
           :placeholder="store.resourceForm.type === 'node'
-            ? '粘贴节点分享链接，每行一个。多条会拆成多个资源。\n支持 ss、ssr、vmess、vless、trojan、hysteria2、tuic、anytls'
+            ? '粘贴节点分享链接，每行一个。多条会拆成多个资源。\n支持 ss、vmess、vless、trojan、hysteria2、tuic、wireguard、socks、http、snell 等'
             : '粘贴多条分享链接，或整段 Clash YAML / Base64 订阅，作为一个节点组'"
           class="textarea textarea-bordered bg-adaptive-input w-full font-mono text-xs"></textarea>
+        <p v-if="importError" class="text-xs text-error mt-2">{{ importError }}</p>
+        <div v-if="importNodes.length" class="mt-3 space-y-2 max-h-64 overflow-y-auto">
+          <p class="text-xs text-adaptive-muted">识别到 {{ importCount }} 个节点，下面是 JSON 和 YAML。</p>
+          <div v-for="(node, i) in importNodes" :key="i" class="rounded-lg border border-panel-border p-2">
+            <p class="text-sm text-adaptive-white mb-1">{{ node.name || '未命名' }} · {{ node.protocol || node.type }}</p>
+            <p v-if="node.note" class="text-xs text-warning mb-1">{{ node.note }}</p>
+            <p class="text-xs text-adaptive-muted">{{ node.yamlLabel }}</p>
+            <pre class="text-xs whitespace-pre-wrap break-all max-h-28 overflow-auto mb-2">{{ node.yaml }}</pre>
+            <p class="text-xs text-adaptive-muted">{{ node.jsonLabel }}</p>
+            <pre class="text-xs whitespace-pre-wrap break-all max-h-28 overflow-auto">{{ node.json }}</pre>
+          </div>
+        </div>
       </div>
 
       <div class="modal-action">
@@ -68,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
@@ -76,6 +88,42 @@ import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const nameError = ref(false)
+const importNodes = ref([])
+const importCount = ref(0)
+const importError = ref('')
+let previewTimer = null
+
+watch(() => store.resourceForm.url, (value) => {
+  clearTimeout(previewTimer)
+  if (store.resourceForm.type === 'remote') {
+    importNodes.value = []
+    importCount.value = 0
+    importError.value = ''
+    return
+  }
+  const text = String(value || '').trim()
+  if (!text) {
+    importNodes.value = []
+    importCount.value = 0
+    importError.value = ''
+    return
+  }
+  previewTimer = setTimeout(() => refreshImportPreview(text), 400)
+})
+
+async function refreshImportPreview(text) {
+  try {
+    const res = await authFetch(`${API}/check`, { method: 'POST', body: { url: text } })
+    const nodes = res.data?.nodes || []
+    importCount.value = nodes.length
+    importNodes.value = nodes.slice(0, 3)
+    importError.value = nodes.length ? '' : (res.error || '没有识别出节点')
+  } catch (error) {
+    importNodes.value = []
+    importCount.value = 0
+    importError.value = error.message || '识别失败'
+  }
+}
 
 async function saveResource() {
   if (!store.resourceForm.url) { showToast('请输入内容', 'error'); return }

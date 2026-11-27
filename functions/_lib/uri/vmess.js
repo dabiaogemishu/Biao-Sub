@@ -24,6 +24,11 @@ function applyNet(node, config) {
     } else if (net === 'http') {
         node.network = 'http';
         node.http = { path: path || '/', host, method: 'GET' };
+    } else if (net === 'kcp' || net === 'mkcp') {
+        node.network = 'kcp';
+        node.kcp = { headerType: config.type && config.type !== 'none' ? config.type : 'none', seed: path || config.seed || '' };
+    } else if (net === 'hysteria') {
+        node.network = 'hysteria';
     } else {
         node.network = 'tcp';
     }
@@ -93,6 +98,8 @@ function looksLikeBase64Json(body) {
 function vmessNet(node) {
     if (node.network === 'httpupgrade') return 'httpupgrade';
     if (node.network === 'xhttp') return 'xhttp';
+    if (node.network === 'kcp') return 'kcp';
+    if (node.network === 'hysteria') return 'hysteria';
     return node.network || 'tcp';
 }
 
@@ -111,6 +118,7 @@ function vmessPath(node) {
     if (node.network === 'grpc') return node.grpc?.serviceName || '';
     if (node.network === 'h2' || node.network === 'http') return node.http?.path || '/';
     if (node.network === 'xhttp') return node.xhttp?.path || '/';
+    if (node.network === 'kcp') return node.kcp?.seed || '';
     return '';
 }
 
@@ -131,7 +139,11 @@ export function generateVmess(node) {
         aid: String(node.alterId || 0),
         scy: node.cipher || 'auto',
         net: vmessNet(node),
-        type: node.network === 'xhttp' ? (node.xhttp?.mode || 'auto') : 'none',
+        type: node.network === 'xhttp'
+            ? (node.xhttp?.mode || 'auto')
+            : node.network === 'kcp'
+                ? (node.kcp?.headerType || 'none')
+                : 'none',
         host: vmessHost(node),
         path: vmessPath(node),
         tls: node.tls ? 'tls' : '',

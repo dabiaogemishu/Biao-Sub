@@ -71,6 +71,12 @@ function applyTransport(node, proxy) {
         node.http = { path: firstPath(opts.path), host: hostOf(opts.headers), method: opts.method || 'GET' };
         return;
     }
+    if (net === 'kcp' || net === 'mkcp') {
+        const opts = proxy['kcp-opts'] || {};
+        node.network = 'kcp';
+        node.kcp = { headerType: opts.header || opts['header-type'] || 'none', seed: opts.seed || '' };
+        return;
+    }
     node.network = net || 'tcp';
 }
 
@@ -239,6 +245,72 @@ export function clashProxyToNode(proxy) {
         if (!node.alpn.length) node.alpn = ['h3'];
         return node;
     }
+    if (type === 'wireguard' || type === 'wg') {
+        if (!proxy['private-key'] && !proxy.privateKey) throw new Error('WireGuard 缺少私钥');
+        if (!proxy['public-key'] && !proxy.publicKey) throw new Error('WireGuard 缺少公钥');
+        const address = [proxy.ip, proxy.ipv6].filter(Boolean).join(',') || proxy.address || '';
+        const reserved = Array.isArray(proxy.reserved) ? proxy.reserved.join(',') : (proxy.reserved || '');
+        return createNode({
+            ...base,
+            type: 'wireguard',
+            privateKey: String(proxy['private-key'] || proxy.privateKey),
+            publicKey: String(proxy['public-key'] || proxy.publicKey),
+            presharedKey: String(proxy['pre-shared-key'] || proxy.presharedKey || ''),
+            address: address || '10.0.0.2/32',
+            mtu: Number(proxy.mtu || 0),
+            reserved: String(reserved),
+            udp: true,
+            network: 'udp'
+        });
+    }
+    if (type === 'socks5' || type === 'socks') {
+        return createNode({
+            ...base,
+            type: 'socks',
+            version: '5',
+            username: proxy.username || '',
+            password: proxy.password != null ? String(proxy.password) : '',
+            tls: asBool(proxy.tls),
+            security: asBool(proxy.tls) ? 'tls' : 'none',
+            skipCertVerify: asBool(proxy['skip-cert-verify']),
+            udp: proxy.udp !== false
+        });
+    }
+    if (type === 'http') {
+        const node = createNode({
+            ...base,
+            type: 'http',
+            username: proxy.username || '',
+            password: proxy.password != null ? String(proxy.password) : '',
+            tls: asBool(proxy.tls),
+            security: asBool(proxy.tls) ? 'tls' : 'none'
+        });
+        applyTls(node, proxy);
+        return node;
+    }
+    if (type === 'snell') {
+        if (!proxy.psk) throw new Error('Snell 缺少 psk');
+        const obfs = proxy['obfs-opts'] || {};
+        return createNode({
+            ...base,
+            type: 'snell',
+            password: String(proxy.psk),
+            version: String(proxy.version || 4),
+            obfs: obfs.mode || '',
+            obfsParam: obfs.host || ''
+        });
+    }
+    if (type === 'ssh') {
+        if (!proxy.username) throw new Error('SSH 缺少用户名');
+        return createNode({
+            ...base,
+            type: 'ssh',
+            username: String(proxy.username),
+            password: proxy.password != null ? String(proxy.password) : '',
+            privateKey: proxy['private-key'] || '',
+            hostKey: proxy['host-key'] || ''
+        });
+    }
     if (type === 'anytls') {
         if (proxy.password == null || proxy.password === '') throw new Error('AnyTLS 缺少 password');
         const node = createNode({
@@ -321,6 +393,11 @@ function tlsFields(node, style) {
     return fields;
 }
 
+function rejectClashTransport(node) {
+    if (node.network === 'kcp') throw new Error('mKCP 无法写入 Clash Meta，Clash 订阅会跳过它');
+    if (node.network === 'hysteria') throw new Error('Hysteria 传输无法写入 Clash Meta，Clash 订阅会跳过它');
+}
+
 export function nodeToClashProxy(node) {
     const dialer = node._dialer || undefined;
     const base = cleanObject({
@@ -352,6 +429,7 @@ export function nodeToClashProxy(node) {
         });
     }
     if (node.type === 'vmess') {
+        rejectClashTransport(node);
         return cleanObject({
             ...base,
             uuid: node.uuid,
@@ -362,6 +440,7 @@ export function nodeToClashProxy(node) {
         });
     }
     if (node.type === 'vless') {
+        rejectClashTransport(node);
         return cleanObject({
             ...base,
             uuid: node.uuid,
@@ -371,6 +450,7 @@ export function nodeToClashProxy(node) {
         });
     }
     if (node.type === 'trojan') {
+        rejectClashTransport(node);
         return cleanObject({
             ...base,
             password: node.password,
@@ -416,6 +496,61 @@ export function nodeToClashProxy(node) {
             'udp-relay-mode': node.udpRelayMode || 'native'
         });
     }
+    if (node.type === 'wireguard') {
+        const parts = String(node.address || '').split(',').map(item => item.trim()).filter(Boolean);
+        const ip = parts.find(item => !item.includes(':'));
+        const ipv6 = parts.find(item => item.includes(':'));
+        return cleanObject({
+            ...base,
+            udp: true,
+            ip: ip || undefined,
+            ipv6: ipv6 || undefined,
+            'private-key': node.privateKey,
+            'public-key': node.publicKey,
+            'pre-shared-key': node.presharedKey || undefined,
+            mtu: node.mtu || undefined,
+            reserved: node.reserved || undefined
+        });
+    }
+    if (node.type === 'socks') {
+        if (String(node.version || '5') === '4') throw new Error('SOCKS4 无法写入 Clash Meta，Clash 订阅会跳过它');
+        return cleanObject({
+            ...base,
+            type: 'socks5',
+            username: node.username || undefined,
+            password: node.password || undefined,
+            udp: node.udp ? true : undefined,
+            tls: node.tls || undefined,
+            'skip-cert-verify': node.skipCertVerify || undefined
+        });
+    }
+    if (node.type === 'http') {
+        return cleanObject({
+            ...base,
+            username: node.username || undefined,
+            password: node.password || undefined,
+            ...tlsFields(node, 'both')
+        });
+    }
+    if (node.type === 'snell') {
+        return cleanObject({
+            ...base,
+            psk: node.password,
+            version: Number(node.version || 4),
+            'obfs-opts': node.obfs ? cleanObject({ mode: node.obfs, host: node.obfsParam || undefined }) : undefined
+        });
+    }
+    if (node.type === 'ssh') {
+        return cleanObject({
+            ...base,
+            username: node.username,
+            password: node.password || undefined,
+            'private-key': node.privateKey || undefined,
+            'host-key': node.hostKey || undefined
+        });
+    }
+    if (node.type === 'shadowtls') throw new Error('ShadowTLS 无法写入 Clash Meta，Clash 订阅会跳过它');
+    if (node.type === 'naive') throw new Error('NaiveProxy 无法写入 Clash Meta，Clash 订阅会跳过它');
     if (node.type === 'anytls') {
         return cleanObject({
             ...base,

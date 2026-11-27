@@ -159,16 +159,38 @@ function renderRules(raw) {
     return stringify({ rules: items }, { lineWidth: 0 }).trimEnd();
 }
 
+function exportClashProxies(nodes) {
+    const proxies = [];
+    const kept = [];
+    const skipped = [];
+    for (const node of nodes || []) {
+        try {
+            proxies.push(nodeToClashProxy(node));
+            kept.push(node);
+        } catch (error) {
+            skipped.push({ name: node?.name || '未命名', message: error.message });
+        }
+    }
+    return { proxies, kept, skipped };
+}
+
+function skipNote(skipped) {
+    if (!skipped.length) return '';
+    const lines = skipped.map(item => `# ${item.name}：${item.message}`);
+    return `${lines.join('\n')}\n`;
+}
+
 export function renderClash(nodes, clashConfig = {}) {
-    const proxies = nodes.map(node => nodeToClashProxy(node));
-    const groups = buildProxyGroups(nodes, clashConfig);
+    const exported = exportClashProxies(nodes);
+    const proxies = exported.proxies;
+    const groups = buildProxyGroups(exported.kept, clashConfig);
     const parts = [];
     if (clashConfig.header && String(clashConfig.header).trim()) parts.push(String(clashConfig.header).trim());
     parts.push(stringify({ proxies }, { lineWidth: 0 }).trimEnd());
     if (groups.length) parts.push(stringify({ 'proxy-groups': groups }, { lineWidth: 0 }).trimEnd());
     const rules = renderRules(clashConfig.rules);
     if (rules) parts.push(rules);
-    return `${parts.join('\n\n')}\n`;
+    return `${skipNote(exported.skipped)}${parts.join('\n\n')}\n`;
 }
 
 export function renderBase64(nodes) {
@@ -234,7 +256,7 @@ function mergeHostedProxies(uploaded, selected) {
 
 export function renderHostedSubscription(rawYaml, nodes) {
     const raw = String(rawYaml || '');
-    const selected = (nodes || []).map(node => nodeToClashProxy(node));
+    const selected = exportClashProxies(nodes).proxies;
     let doc;
     try {
         doc = raw.trim() ? parseYaml(raw) : {};
