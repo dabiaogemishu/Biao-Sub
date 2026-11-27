@@ -1,3 +1,7 @@
+import { defaultProcess, normalizeProcess, processIsActive, processLabels, PROTOCOL_OPTIONS, typeLabel } from '../../functions/_lib/output/process.js'
+
+export { defaultProcess, normalizeProcess, processIsActive, processLabels, PROTOCOL_OPTIONS, typeLabel }
+
 export function failureText(data, status, fallback = '请求失败') {
     const message = data && typeof data.error === 'string' ? data.error.trim() : ''
     if (message) return message
@@ -7,7 +11,12 @@ export function failureText(data, status, fallback = '请求失败') {
 
 export function subscriptionLinks(origin, token) {
     const base = `${String(origin || '').replace(/\/$/, '')}/api/g/${token}`
-    return { clash: base, base64: `${base}?format=base64` }
+    return {
+        clash: base,
+        base64: `${base}?format=base64`,
+        singbox: `${base}?format=singbox`,
+        list: `${base}?format=list`
+    }
 }
 
 export function moveItem(list, oldIndex, newIndex) {
@@ -60,10 +69,23 @@ export function importPreviewState(nodes, error, limit = 3) {
     const list = Array.isArray(nodes) ? nodes : []
     const cap = Number(limit)
     const size = Number.isInteger(cap) && cap > 0 ? cap : 3
+    const types = {}
+    for (const node of list) {
+        const key = node?.type || node?.protocol || 'other'
+        types[key] = (types[key] || 0) + 1
+    }
     return {
         count: list.length,
         nodes: list.slice(0, size),
+        all: list,
+        types,
         hidden: Math.max(0, list.length - size),
         error: list.length ? '' : (error || '没有识别出节点')
     }
+}
+
+export function withProcess(clashConfig = {}) {
+    const next = clashConfig && typeof clashConfig === 'object' ? { ...clashConfig } : {}
+    next.process = normalizeProcess(next.process)
+    return next
 }

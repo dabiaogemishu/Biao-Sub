@@ -3,13 +3,21 @@ import { encodeBase64 } from '../core/codec.js';
 import { cleanObject } from '../core/model.js';
 import { toUri } from '../uri/index.js';
 import { clashProxyToNode, nodeToClashProxy } from '../clash/convert.js';
+import { nodeToSingbox } from '../preview/view.js';
+import { applyProcess, retargetDialers, uniquifyNames } from './process.js';
 
 const BUILTIN = new Set(['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE']);
 
 export function resolveFormat(format) {
     const value = String(format || '').toLowerCase();
     if (value === 'base64' || value === 'v2ray' || value === 'uri') return 'base64';
+    if (value === 'singbox' || value === 'sing-box' || value === 'sb') return 'singbox';
+    if (value === 'list' || value === 'provider' || value === 'clash-provider') return 'list';
     return 'clash';
+}
+
+export function finalizeNodes(entries, process) {
+    return uniquifyNames(retargetDialers(applyProcess(selectNodes(entries), process)));
 }
 
 function filterEntry(entry) {
@@ -48,8 +56,8 @@ export function selectNodes(entries) {
     return ordered;
 }
 
-export function chainRejection(entries, groupNames) {
-    const nodes = selectNodes(entries);
+export function chainRejection(entries, groupNames, process) {
+    const nodes = finalizeNodes(entries, process);
     const knownNodes = new Set(nodes.map(node => node.name));
     const knownGroups = new Set((groupNames || []).filter(Boolean).map(name => String(name)));
     for (const entry of entries || []) {
@@ -206,12 +214,55 @@ export function renderBase64(nodes) {
     return { base64: encodeBase64(links.join('\n')), links, errors };
 }
 
+export function renderClashList(nodes) {
+    const exported = exportClashProxies(nodes);
+    return `${skipNote(exported.skipped)}${stringify({ proxies: exported.proxies }, { lineWidth: 0 }).trimEnd()}\n`;
+}
+
+export function renderSingbox(nodes) {
+    const outbounds = [];
+    const endpoints = [];
+    const skipped = [];
+    for (const node of nodes || []) {
+        if (node.type === 'ssr') {
+            skipped.push({ name: node?.name || '未命名', message: 'sing-box 没有 SSR 出站' });
+            continue;
+        }
+        if (node.type === 'socks' && String(node.version || '') === '4') {
+            skipped.push({ name: node?.name || '未命名', message: 'sing-box 输出不包含 SOCKS4' });
+            continue;
+        }
+        try {
+            const doc = nodeToSingbox(node);
+            if (node.type === 'wireguard') endpoints.push(doc.object);
+            else outbounds.push(doc.object);
+        } catch (error) {
+            skipped.push({ name: node?.name || '未命名', message: error.message });
+        }
+    }
+    const payload = { outbounds };
+    if (endpoints.length) payload.endpoints = endpoints;
+    return JSON.stringify(payload, null, 2) + '\n';
+}
+
+function withFormats(nodes, clash, encoded, extraErrors = []) {
+    return {
+        nodes,
+        clash,
+        list: renderClashList(nodes),
+        singbox: renderSingbox(nodes),
+        base64: encoded.base64,
+        links: encoded.links,
+        errors: [...extraErrors, ...encoded.errors]
+    };
+}
+
 export function renderSubscription({ entries, clashConfig }) {
-    const nodes = selectNodes(entries);
+    const nodes = finalizeNodes(entries, clashConfig?.process);
     const usable = ensureUsableGenerate(clashConfig || {});
     const clash = renderClash(nodes, usable);
     const encoded = renderBase64(nodes);
-    return { nodes, clash, base64: encoded.base64, links: encoded.links, errors: encoded.errors };
+    return withFormats(nodes, clash, encoded);
 }
 
 const USE_ALL_KEYS = ['useAllProxies', 'use-all-proxies', 'include-all', 'include-all-proxies'];
@@ -262,23 +313,11 @@ export function renderHostedSubscription(rawYaml, nodes) {
         doc = raw.trim() ? parseYaml(raw) : {};
     } catch (error) {
         const encoded = renderBase64(nodes || []);
-        return {
-            nodes: nodes || [],
-            clash: raw,
-            base64: encoded.base64,
-            links: encoded.links,
-            errors: [{ message: `托管 YAML 无法解析：${error.message}` }, ...encoded.errors]
-        };
+        return withFormats(nodes || [], raw, encoded, [{ message: `托管 YAML 无法解析：${error.message}` }]);
     }
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
         const encoded = renderBase64(nodes || []);
-        return {
-            nodes: nodes || [],
-            clash: raw,
-            base64: encoded.base64,
-            links: encoded.links,
-            errors: [{ message: '托管 YAML 不是配置对象' }, ...encoded.errors]
-        };
+        return withFormats(nodes || [], raw, encoded, [{ message: '托管 YAML 不是配置对象' }]);
     }
     const uploaded = Array.isArray(doc.proxies) ? doc.proxies : [];
     doc.proxies = mergeHostedProxies(uploaded, selected);
@@ -297,11 +336,5 @@ export function renderHostedSubscription(rawYaml, nodes) {
         }
     }
     const encoded = renderBase64(outputNodes);
-    return {
-        nodes: outputNodes,
-        clash: stringify(doc, { lineWidth: 0 }),
-        base64: encoded.base64,
-        links: encoded.links,
-        errors: [...errors, ...encoded.errors]
-    };
+    return withFormats(outputNodes, stringify(doc, { lineWidth: 0 }), encoded, errors);
 }

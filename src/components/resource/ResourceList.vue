@@ -2,6 +2,10 @@
   <div>
     <!-- 操作栏 -->
     <div class="flex flex-wrap gap-2 mb-4 sm:mb-6 items-center">
+      <label class="input input-bordered input-sm sm:input-md bg-adaptive-input flex items-center gap-2 flex-1 min-w-[12rem] max-w-md">
+        <i class="fa-solid fa-magnifying-glass text-adaptive-muted text-xs"></i>
+        <input v-model="store.resourceQuery" type="search" class="grow bg-transparent outline-none" placeholder="搜索资源名称" />
+      </label>
       <button class="btn btn-primary btn-sm sm:btn-md gap-2 shadow-lg" @click="openAddResource">
         <i class="fa-solid fa-plus"></i> 添加资源
       </button>
@@ -106,6 +110,9 @@
       <i class="fa-solid fa-box-open text-6xl text-adaptive-muted opacity-30 mb-4"></i>
       <p class="text-adaptive-muted text-lg">资源池为空，添加你的第一个资源</p>
     </div>
+    <div v-else-if="filteredResources.length === 0" class="text-center py-12">
+      <p class="text-adaptive-muted">没有符合筛选或搜索条件的资源</p>
+    </div>
   </div>
 </template>
 
@@ -122,8 +129,12 @@ const resourceListRef = ref(null)
 const emit = defineEmits(['preview', 'openRemote', 'refreshRemote'])
 
 const filteredResources = computed(() => {
-  if (store.resourceFilter === 'all') return store.resources
-  return store.resources.filter(r => r.type === store.resourceFilter)
+  const query = String(store.resourceQuery || '').trim().toLowerCase()
+  return store.resources.filter(r => {
+    if (store.resourceFilter !== 'all' && r.type !== store.resourceFilter) return false
+    if (!query) return true
+    return String(r.name || '').toLowerCase().includes(query)
+  })
 })
 
 function getUADisplay(r) {

@@ -13,9 +13,12 @@
       </div>
 
       <!-- Tab 切换 -->
-      <div class="tabs tabs-boxed mx-4 sm:mx-6 mt-4 p-1">
+      <div class="tabs tabs-boxed mx-4 sm:mx-6 mt-4 p-1 flex-wrap">
         <a class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='base'}" @click="store.groupModal.tab='base'">
           <i class="fa-solid fa-cubes mr-2"></i> 节点配置
+        </a>
+        <a class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='process'}" @click="store.groupModal.tab='process'">
+          <i class="fa-solid fa-sliders mr-2"></i> 节点处理
         </a>
         <a v-if="store.groupForm.clash_config.mode !== 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='clash'}" @click="store.groupModal.tab='clash'">
           <i class="fa-solid fa-gears mr-2"></i> Clash配置
@@ -129,6 +132,90 @@
               <div v-if="c.filter" class="badge badge-outline badge-sm mb-1">
                 {{ getResourceName(c.subId) }}: {{ c.filter }}
               </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Tab: 节点处理 -->
+        <div v-show="store.groupModal.tab === 'process'">
+          <p class="text-xs text-adaptive-muted mb-4">这里的处理发生在已选资源和节点筛选之后，对 Clash、Base64、sing-box 和节点列表四种输出一并生效。现有聚合组不开启任何选项时，结果与以前相同。</p>
+          <div class="grid sm:grid-cols-2 gap-4 mb-4">
+            <div class="form-control">
+              <label class="label"><span class="label-text text-adaptive-muted">保留（节点名正则）</span></label>
+              <input v-model="store.groupForm.clash_config.process.include" type="text" placeholder="例如 (?i)(港|HK|日本)"
+                class="input input-bordered input-sm bg-adaptive-input w-full" />
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text text-adaptive-muted">排除（节点名正则）</span></label>
+              <input v-model="store.groupForm.clash_config.process.exclude" type="text" placeholder="例如 (?i)(过期|剩余|官网)"
+                class="input input-bordered input-sm bg-adaptive-input w-full" />
+            </div>
+          </div>
+          <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="font-bold text-sm text-adaptive-white">只保留这些协议</h4>
+              <button class="btn btn-xs btn-ghost" @click="store.groupForm.clash_config.process.protocols = []">全部协议</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="item in protocolOptions" :key="item.value" type="button"
+                class="btn btn-xs" :class="hasProtocol(item.value) ? 'btn-primary' : 'btn-outline'"
+                @click="toggleProtocol(item.value)">{{ item.label }}</button>
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3 mb-4">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-adaptive-input border border-panel-border cursor-pointer">
+              <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" v-model="store.groupForm.clash_config.process.dropUseless" />
+              <span class="text-sm">去掉流量、到期、官网等说明节点</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-adaptive-input border border-panel-border cursor-pointer">
+              <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" v-model="store.groupForm.clash_config.process.dedup" />
+              <span class="text-sm">按服务器去重，保留先出现的节点</span>
+            </label>
+          </div>
+          <div class="form-control mb-4 max-w-xs">
+            <label class="label"><span class="label-text text-adaptive-muted">排序</span></label>
+            <select v-model="store.groupForm.clash_config.process.sort" class="select select-bordered select-sm bg-adaptive-input">
+              <option value="none">保持原顺序</option>
+              <option value="name">按名称</option>
+              <option value="name-desc">按名称倒序</option>
+            </select>
+          </div>
+          <h4 class="font-bold text-sm text-adaptive-white mb-3">重命名</h4>
+          <div class="grid sm:grid-cols-2 gap-4 mb-3">
+            <div class="form-control">
+              <label class="label"><span class="label-text text-adaptive-muted">前缀</span></label>
+              <input v-model="store.groupForm.clash_config.process.rename.prefix" type="text" placeholder="例如 家宽-"
+                class="input input-bordered input-sm bg-adaptive-input w-full" />
+            </div>
+            <div class="form-control">
+              <label class="label"><span class="label-text text-adaptive-muted">后缀</span></label>
+              <input v-model="store.groupForm.clash_config.process.rename.suffix" type="text"
+                class="input input-bordered input-sm bg-adaptive-input w-full" />
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3 mb-4">
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-adaptive-input border border-panel-border cursor-pointer">
+              <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" v-model="store.groupForm.clash_config.process.rename.appendType" />
+              <span class="text-sm">名称前加上 [VLESS] 这类协议标记</span>
+            </label>
+            <label class="flex items-center gap-2 p-3 rounded-xl bg-adaptive-input border border-panel-border cursor-pointer">
+              <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" v-model="store.groupForm.clash_config.process.rename.emoji" />
+              <span class="text-sm">按节点名加上地区旗帜</span>
+            </label>
+          </div>
+          <div class="mb-2 flex items-center justify-between">
+            <h4 class="font-bold text-sm text-adaptive-white">正则替换</h4>
+            <button class="btn btn-xs btn-ghost text-accent" @click="addRenameRule"><i class="fa-solid fa-plus mr-1"></i>添加一条</button>
+          </div>
+          <div v-if="!store.groupForm.clash_config.process.rename.rules.length" class="text-xs text-adaptive-muted mb-2">例如把「专线」替换成空，或把「香港」统一成「HK」。</div>
+          <div class="space-y-2">
+            <div v-for="(rule, i) in store.groupForm.clash_config.process.rename.rules" :key="i" class="flex gap-2 items-center">
+              <input v-model="rule.pattern" type="text" placeholder="正则" class="input input-bordered input-sm bg-adaptive-input flex-1" />
+              <input v-model="rule.replacement" type="text" placeholder="替换为" class="input input-bordered input-sm bg-adaptive-input flex-1" />
+              <button class="btn btn-xs btn-ghost text-error" @click="store.groupForm.clash_config.process.rename.rules.splice(i, 1)">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -279,16 +366,40 @@ import { parse as parseYaml } from 'yaml'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups, loadTemplates } from '../../api/index.js'
 import { showToast, copyText } from '../../utils/helpers.js'
-import { subscriptionLinks } from '../../utils/panel.js'
+import { subscriptionLinks, PROTOCOL_OPTIONS, withProcess } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const uploadedFileName = ref('')
 const refreshedLinks = ref(null)
 
+const protocolOptions = PROTOCOL_OPTIONS
+
 watch(() => [store.groupModal.show, store.groupForm.id], () => {
   if (!store.groupModal.show) refreshedLinks.value = null
+  else ensureProcess()
 })
+
+function ensureProcess() {
+  store.groupForm.clash_config = withProcess(store.groupForm.clash_config || {})
+}
+
+function hasProtocol(value) {
+  return (store.groupForm.clash_config.process?.protocols || []).includes(value)
+}
+
+function toggleProtocol(value) {
+  ensureProcess()
+  const list = store.groupForm.clash_config.process.protocols
+  const index = list.indexOf(value)
+  if (index === -1) list.push(value)
+  else list.splice(index, 1)
+}
+
+function addRenameRule() {
+  ensureProcess()
+  store.groupForm.clash_config.process.rename.rules.push({ pattern: '', replacement: '' })
+}
 const selectedResourceListRef = ref(null)
 const proxyGroupListRef = ref(null)
 const nodeNamesBySubId = ref({})
@@ -510,7 +621,7 @@ async function saveGroup() {
     const body = {
       name: store.groupForm.name,
       config: store.groupForm.config,
-      clash_config: store.groupForm.clash_config
+      clash_config: withProcess(store.groupForm.clash_config)
     }
 
     const res = store.groupModal.isEdit

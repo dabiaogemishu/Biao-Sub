@@ -1,5 +1,6 @@
 import { parseJson } from '../core/model.js';
 import { ensureUsableGenerate } from '../output/build.js';
+import { normalizeProcess, validateProcess } from '../output/process.js';
 
 export function idSetOf(ids) {
     const set = new Set();
@@ -31,6 +32,9 @@ export function prepareGroupWrite(existing, body) {
     const clashConfig = hasClash ? body.clash_config : parseJson(existing?.clash_config, {});
     const aligned = alignMembership(config, clashConfig);
     const usable = aligned.clashConfig.mode === 'raw' ? aligned.clashConfig : ensureUsableGenerate(aligned.clashConfig);
+    const processError = validateProcess(usable.process);
+    if (processError) return { changed: true, config: aligned.config, clashConfig: usable, error: processError };
+    usable.process = normalizeProcess(usable.process);
     return { changed: true, config: aligned.config, clashConfig: usable };
 }
 

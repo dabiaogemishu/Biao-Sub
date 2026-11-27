@@ -55,9 +55,22 @@
           class="textarea textarea-bordered bg-adaptive-input w-full font-mono text-xs"></textarea>
         <p v-if="previewing" class="text-xs text-adaptive-muted mt-2">正在识别…</p>
         <p v-if="importError" class="text-xs text-error mt-2">{{ importError }}</p>
-        <div v-if="importNodes.length" class="mt-3 space-y-4">
-          <p class="text-xs text-adaptive-muted">识别到 {{ importCount }} 个节点。下面同时给出 YAML 和 JSON。<span v-if="hiddenCount">仅预览前 {{ previewLimit }} 个，其余 {{ hiddenCount }} 个保存时仍会导入。</span></p>
-          <div v-for="(node, i) in importNodes" :key="i" class="rounded-lg border border-panel-border p-3">
+        <div v-if="importCount" class="mt-3 space-y-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-xs text-adaptive-muted">识别到 {{ importCount }} 个节点。保存时会导入全部。</p>
+            <span v-for="(count, type) in importTypes" :key="type" class="badge badge-sm badge-outline">{{ type }} {{ count }}</span>
+          </div>
+          <div v-if="importCatalog.length" class="rounded-xl border border-panel-border p-3 max-h-40 overflow-y-auto custom-scrollbar">
+            <div v-for="(node, i) in importCatalog" :key="'cat-'+i" class="flex items-center gap-2 py-0.5 text-xs">
+              <span class="badge badge-ghost badge-xs uppercase">{{ node.type || node.protocol || 'node' }}</span>
+              <span class="text-adaptive-white truncate">{{ node.name || '未命名' }}</span>
+            </div>
+          </div>
+          <p class="text-xs text-adaptive-muted">下面同时给出 YAML 和 JSON。<span v-if="hiddenCount && !expandedPreview">默认展开前 {{ previewLimit }} 个，其余 {{ hiddenCount }} 个可点开。</span></p>
+          <button v-if="hiddenCount" class="btn btn-xs btn-ghost" @click="expandedPreview = !expandedPreview">
+            {{ expandedPreview ? '收起详情' : '展开全部 YAML / JSON' }}
+          </button>
+          <div v-for="(node, i) in visibleImportNodes" :key="i" class="rounded-xl border border-panel-border p-3">
             <p class="text-sm text-adaptive-white mb-2">{{ node.name || '未命名' }} · {{ node.protocol || node.type }}</p>
             <p v-if="node.note" class="text-xs text-warning mb-2">{{ node.note }}</p>
             <div class="grid lg:grid-cols-2 gap-3">
@@ -88,28 +101,36 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
-import { importPreviewState, mergeSavedResources } from '../../utils/panel.js'
+import { importPreviewState, mergeSavedResources, typeLabel } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const nameError = ref(false)
 const importNodes = ref([])
+const importCatalog = ref([])
+const importTypes = ref({})
 const importCount = ref(0)
 const hiddenCount = ref(0)
 const previewLimit = 3
+const expandedPreview = ref(false)
 const importError = ref('')
 const previewing = ref(false)
 let previewTimer = null
 let previewSeq = 0
 
+const visibleImportNodes = computed(() => expandedPreview.value ? importNodes.value : importNodes.value.slice(0, previewLimit))
+
 function clearPreview() {
   importNodes.value = []
+  importCatalog.value = []
+  importTypes.value = {}
   importCount.value = 0
   hiddenCount.value = 0
+  expandedPreview.value = false
   importError.value = ''
   previewing.value = false
 }
@@ -133,6 +154,8 @@ function schedulePreview(value) {
     return
   }
   importNodes.value = []
+  importCatalog.value = []
+  importTypes.value = {}
   importCount.value = 0
   hiddenCount.value = 0
   importError.value = ''
@@ -146,12 +169,16 @@ async function refreshImportPreview(text, seq) {
     if (seq !== previewSeq) return
     const preview = importPreviewState(res.data?.nodes || [], res.error || '没有识别出节点', previewLimit)
     importCount.value = preview.count
-    importNodes.value = preview.nodes
+    importNodes.value = preview.all
+    importCatalog.value = preview.all
+    importTypes.value = Object.fromEntries(Object.entries(preview.types || {}).map(([key, count]) => [typeLabel(key) || key, count]))
     hiddenCount.value = preview.hidden
     importError.value = preview.error
   } catch (error) {
     if (seq !== previewSeq) return
     importNodes.value = []
+    importCatalog.value = []
+    importTypes.value = {}
     importCount.value = 0
     hiddenCount.value = 0
     importError.value = error.message || '识别失败'

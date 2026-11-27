@@ -27,6 +27,8 @@ test('裸链接默认 Clash，base64 使用标准字符集和填充', () => {
     assert.equal(resolveFormat('clash'), 'clash');
     assert.equal(resolveFormat('yaml'), 'clash');
     assert.equal(resolveFormat('base64'), 'base64');
+    assert.equal(resolveFormat('singbox'), 'singbox');
+    assert.equal(resolveFormat('list'), 'list');
 
     const built = renderSubscription({
         entries: [{ nodes: [node('甲'), node('乙', '2.2.2.2')], resourceName: '自建' }],

@@ -8,6 +8,7 @@ BiaoSUB 是自建的订阅聚合面板。把自建节点链接和机场订阅地
 
 - 导入自建节点，或拉取机场的远程订阅。远程刷新成功后才会替换节点，刷新前的内容留在 `snapshot`。解析失败或拉取失败时，原来的节点和聚合组引用不动。只有删除资源时，才会把它从聚合组里拿掉。机场若屏蔽 Cloudflare 出口，可在系统设置里填一个 SOCKS5 落地节点，只用于拉取和刷新远程订阅。公开订阅和登录不走这个代理。
 - 一个聚合组可以挑选多个资源、按名称或序号筛选、拖拽排序。
+- 聚合组还可以做统一的节点处理：按名称正则保留或排除、按协议筛选、去掉流量/到期等说明节点、按服务器去重、排序，以及前缀/后缀、协议标记、地区旗帜和正则重命名。这些处理对 Clash、Base64、sing-box 和节点列表四种输出一起生效。不开启时，结果与以前相同。
 - 三种模板：
   - **默认模板**：带预设的 Clash 头部、名为 `Proxy` 的选择策略组（使用全部已选节点）和一套规则。
   - **空白模板**：没有那套长头部。保存后仍是一份能用的配置：已选节点、名为 `Proxy` 的选择组，以及 `MATCH,Proxy`。
@@ -51,11 +52,13 @@ mKCP，以及把 Hysteria 当作 VMess/VLESS/Trojan 的传输时，分享链接�
 公开订阅用聚合组的 **16 位 token**，不是数字 id。`/api/g/64` 这种数字路径会 404，正文是「订阅不存在」。
 
 ```
-https://<PROJECT_NAME>.pages.dev/api/g/<group-token>                 Clash Meta YAML（默认）
-https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=base64   v2rayN 用的标准 Base64（A-Za-z0-9+/，保留 = 填充）
+https://<PROJECT_NAME>.pages.dev/api/g/<group-token>                   Clash Meta YAML（默认，含策略组和规则）
+https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=base64     v2rayN 用的标准 Base64（A-Za-z0-9+/，保留 = 填充）
+https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=singbox    sing-box 出站 JSON（WireGuard 写在 endpoints）
+https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=list       只有 proxies 的 Clash 节点列表，可给 proxy-provider 用
 ```
 
-`format=clash` 或 `format=yaml` 与默认相同。两种输出使用同一套筛选和重名处理。重名会变成 `香港`、`香港 1`。
+`format=clash` 或 `format=yaml` 与默认相同。`format=v2ray` / `uri` 等同 Base64，`format=sing-box` / `sb` 等同 sing-box，`format=provider` 等同节点列表。四种输出使用同一套筛选、处理和重名规则。重名会变成 `香港`、`香港 1`。sing-box 会跳过 SSR 和 SOCKS4；链式代理只出现在完整 Clash 订阅里。
 
 管理接口要先登录。服务端用 `ADMIN_PASSWORD` 签发 12 小时的会话令牌，浏览器只放在 `sessionStorage`，关掉标签页就没了。`/api/g/<group-token>` 不需要管理登录。
 
@@ -161,13 +164,13 @@ Retry 使用同一次提交再构建。绑定和密钥是在这次重试之前�
 ### 8. 第一次登录，并做出订阅
 
 1. 浏览器打开 `https://<PROJECT_NAME>.pages.dev`。刚部署完若打不开，等一分钟再试，或换一个网络。这是 `*.pages.dev` 的域名还没在你这边解析开，不是构建失败。
-2. 页面中央是登录卡，提示「请输入管理密码」。输入第 6 步的密码，点 **登录**。
+2. 页面中央是登录卡，标题是 BiaoSUB，密码框提示「管理密码」。输入第 6 步的密码，点 **登录**。
    - 什么都没输入就点登录：按钮下方显示「请输入密码」，不会发请求。
    - 密码不对：提示「密码错误」。
    - 提示「服务端未配置 ADMIN_PASSWORD」：生产环境没加密保存这个变量，或保存之后没有 Retry。回到第 6、7 步。
 3. 登录后默认在 **资源池**。添加一条自建节点链接，或一个机场订阅地址。
-4. 打开 **聚合订阅组** → **新建聚合组**。先选模板（默认、空白或托管 YAML），填写组名，勾选资源。需要链式时打开它，并选择策略组或其他已选节点，再 **创建**。
-5. 卡片上 **Clash（默认）** 复制的是 `https://<PROJECT_NAME>.pages.dev/api/g/<16位token>`。**Base64** 复制的是同一地址加上 `?format=base64`。把 Clash 地址填进 Clash Meta / Mihomo。启用了链式时，卡片上会写明 Base64 不含链式。
+4. 打开 **聚合订阅组** → **新建聚合组**。先选模板（默认、空白或托管 YAML），填写组名，勾选资源。需要过滤、去重或重命名时，打开 **节点处理**。需要链式时打开它，并选择策略组或其他已选节点，再 **创建**。
+5. 卡片上 **Clash** 复制的是 `https://<PROJECT_NAME>.pages.dev/api/g/<16位token>`。**Base64**、**sing-box**、**节点列表** 分别带 `?format=base64`、`?format=singbox`、`?format=list`。把 Clash 地址填进 Clash Meta / Mihomo，把 sing-box 地址给能导入出站 JSON 的客户端。启用了链式时，卡片上会写明只有完整 Clash 订阅包含链式。
 
 ### 以后怎么更新
 

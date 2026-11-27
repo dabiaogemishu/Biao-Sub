@@ -12,6 +12,8 @@ test('订阅链接用 token，Base64 带 format', () => {
     const links = subscriptionLinks('https://biaosub.pages.dev/', 'abc');
     assert.equal(links.clash, 'https://biaosub.pages.dev/api/g/abc');
     assert.equal(links.base64, 'https://biaosub.pages.dev/api/g/abc?format=base64');
+    assert.equal(links.singbox, 'https://biaosub.pages.dev/api/g/abc?format=singbox');
+    assert.equal(links.list, 'https://biaosub.pages.dev/api/g/abc?format=list');
 });
 
 test('拖拽按索引重排，越界时保持原顺序', () => {
@@ -43,6 +45,7 @@ test('importPreviewState 只展示前几个节点，并说明其余仍会导入'
     assert.equal(many.count, 4);
     assert.deepEqual(many.nodes.map(item => item.name), ['a', 'b', 'c']);
     assert.equal(many.hidden, 1);
+    assert.equal(many.all.length, 4);
     assert.equal(many.error, '');
     const empty = importPreviewState([], '内容为空');
     assert.equal(empty.count, 0);

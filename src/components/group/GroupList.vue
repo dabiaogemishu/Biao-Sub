@@ -29,6 +29,7 @@
                 <span class="badge badge-accent badge-sm">
                   {{ isRawMode(g) ? '托管YAML' : `${(g.config || []).length}个资源` }}
                 </span>
+                <span v-for="label in processBadges(g)" :key="label" class="badge badge-outline badge-sm">{{ label }}</span>
                 <span v-if="g.access_count" class="badge badge-ghost badge-sm">
                   <i class="fa-solid fa-chart-simple mr-1"></i> {{ g.access_count }}次
                 </span>
@@ -36,13 +37,19 @@
               <!-- 订阅链接 -->
               <div class="mt-2 flex flex-wrap gap-1 sm:gap-2">
                 <button @click="copyLink(g.token, 'clash')" class="btn btn-xs btn-outline btn-primary gap-1">
-                  <i class="fa-solid fa-copy"></i> Clash（默认）
+                  <i class="fa-solid fa-copy"></i> Clash
                 </button>
                 <button @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1">
                   <i class="fa-solid fa-copy"></i> Base64
                 </button>
+                <button @click="copyLink(g.token, 'singbox')" class="btn btn-xs btn-outline btn-accent gap-1">
+                  <i class="fa-solid fa-copy"></i> sing-box
+                </button>
+                <button @click="copyLink(g.token, 'list')" class="btn btn-xs btn-outline gap-1">
+                  <i class="fa-solid fa-copy"></i> 节点列表
+                </button>
               </div>
-              <p v-if="hasChain(g)" class="text-xs text-warning mt-2">Base64 订阅不含链式代理，链式只在 Clash 订阅里生效。</p>
+              <p v-if="hasChain(g)" class="text-xs text-warning mt-2">Base64、sing-box 和节点列表不含链式代理，链式只在完整 Clash 订阅里生效。</p>
             </div>
             <!-- 操作按钮 -->
             <div class="flex gap-1 flex-shrink-0">
@@ -71,7 +78,7 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups } from '../../api/index.js'
 import { showToast, copyText } from '../../utils/helpers.js'
-import { moveItem, subscriptionLinks } from '../../utils/panel.js'
+import { moveItem, processLabels, subscriptionLinks, withProcess, defaultProcess } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 import { defaultHeader, defaultRules } from '../../api/config.js'
 
@@ -104,16 +111,27 @@ function openEditGroup(g) {
   store.groupForm = {
     id: g.id, name: g.name,
     config: JSON.parse(JSON.stringify(g.config || [])),
-    clash_config: JSON.parse(JSON.stringify(g.clash_config || { mode: 'generate', header: '', groups: [], rules: '', resources: [], raw_yaml: '' }))
+    clash_config: withProcess(JSON.parse(JSON.stringify(g.clash_config || { mode: 'generate', header: '', groups: [], rules: '', resources: [], raw_yaml: '' })))
   }
   store.groupModal.isEdit = true
   store.groupModal.tab = store.groupForm.clash_config.mode === 'raw' ? 'raw' : 'base'
   store.groupModal.show = true
 }
 
+function clashConfigOf(group) {
+  try {
+    return typeof group.clash_config === 'string' ? JSON.parse(group.clash_config) : (group.clash_config || {})
+  } catch { return {} }
+}
+
+function processBadges(group) {
+  return processLabels(clashConfigOf(group).process)
+}
+
 function copyLink(token, format) {
   const links = subscriptionLinks(window.location.origin, token)
-  copyText(format === 'base64' ? links.base64 : links.clash)
+  const url = format === 'base64' ? links.base64 : format === 'singbox' ? links.singbox : format === 'list' ? links.list : links.clash
+  copyText(url)
 }
 
 async function deleteGroup(id) {

@@ -1,6 +1,6 @@
 import { parseJson } from '../core/model.js';
 import { parseSubscription } from '../subscribe/parse.js';
-import { chainRejection, policyGroupNames, renderHostedSubscription, renderSubscription, selectNodes } from './build.js';
+import { chainRejection, finalizeNodes, policyGroupNames, renderHostedSubscription, renderSubscription, selectNodes } from './build.js';
 
 export function entriesFrom(group, subsById) {
     const clashConfig = group.clash_config || {};
@@ -37,7 +37,7 @@ export async function chainProblem(db, config, clashConfig) {
     }
     const map = new Map(subs.map(sub => [Number(sub.id), sub]));
     const { entries } = entriesFrom({ config: items, clash_config: clashConfig || {} }, map);
-    return chainRejection(entries, policyGroupNames(clashConfig || {}));
+    return chainRejection(entries, policyGroupNames(clashConfig || {}), clashConfig?.process);
 }
 
 export function buildGroupFromRows(group, subs) {
@@ -45,7 +45,7 @@ export function buildGroupFromRows(group, subs) {
     const config = parseJson(group.config, []);
     const map = new Map((subs || []).map(sub => [Number(sub.id), sub]));
     const { entries } = entriesFrom({ config, clash_config: clashConfig }, map);
-    if (clashConfig.mode === 'raw') return renderHostedSubscription(clashConfig.raw_yaml || '', selectNodes(entries));
+    if (clashConfig.mode === 'raw') return renderHostedSubscription(clashConfig.raw_yaml || '', finalizeNodes(entries, clashConfig.process));
     return renderSubscription({ entries, clashConfig });
 }
 

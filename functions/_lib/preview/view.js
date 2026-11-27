@@ -135,6 +135,10 @@ function useXray(node) {
     return ['vmess', 'vless', 'trojan'].includes(node.type) && ['kcp', 'xhttp', 'hysteria'].includes(node.network);
 }
 
+export function nodeToSingbox(node) {
+    return singboxOutbound(node);
+}
+
 function singboxOutbound(node) {
     const tag = node.name;
     const dial = { server: node.server, server_port: node.port };

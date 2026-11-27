@@ -46,12 +46,13 @@ import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadTemplates } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
 import { API, defaultHeader, defaultRules } from '../../api/config.js'
+import { withProcess } from '../../utils/panel.js'
 
 const store = useMainStore()
 
 function selectTemplate(type, template) {
   if (type === 'default') {
-    store.groupForm.clash_config = {
+    store.groupForm.clash_config = withProcess({
       mode: 'generate',
       header: defaultHeader,
       groups: [
@@ -60,29 +61,29 @@ function selectTemplate(type, template) {
       rules: defaultRules,
       resources: [],
       raw_yaml: ''
-    }
+    })
   } else if (type === 'blank') {
-    store.groupForm.clash_config = {
+    store.groupForm.clash_config = withProcess({
       mode: 'generate',
       header: '',
       groups: [{ name: 'Proxy', type: 'select', proxies: [], useAllProxies: true }],
       rules: 'MATCH,Proxy',
       resources: [],
       raw_yaml: ''
-    }
+    })
   } else if (type === 'raw') {
-    store.groupForm.clash_config = {
+    store.groupForm.clash_config = withProcess({
       mode: 'raw', header: '', groups: [], rules: '', resources: [], raw_yaml: ''
-    }
+    })
   } else if (type === 'custom' && template) {
-    store.groupForm.clash_config = {
+    store.groupForm.clash_config = withProcess({
       mode: 'generate',
       header: template.header || '',
       groups: JSON.parse(JSON.stringify(template.groups || [])),
       rules: template.rules || '',
       resources: [],
       raw_yaml: ''
-    }
+    })
   }
 
   store.templateModal.show = false

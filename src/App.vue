@@ -6,7 +6,7 @@
     <LoginOverlay v-else-if="!store.isLoggedIn" />
 
     <!-- 主应用 -->
-    <div v-else class="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div v-else class="biaosub-shell mx-auto px-3 sm:px-5 py-5 sm:py-8">
       <NavBar @openSettings="store.settingsModal.show = true" />
       <Dashboard />
     </div>

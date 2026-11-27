@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, reactive, computed } from 'vue'
+import { defaultProcess } from '../utils/panel.js'
 
 export const useMainStore = defineStore('main', () => {
     // ============ 核心数据 ============
@@ -33,6 +34,7 @@ export const useMainStore = defineStore('main', () => {
     const theme = ref(localStorage.getItem('theme') || 'dark')
     const currentTab = ref('resources')
     const resourceFilter = ref('all')
+    const resourceQuery = ref('')
     const submitting = ref(false)
     const toast = reactive({ show: false, message: '', type: 'success' })
 
@@ -67,7 +69,8 @@ export const useMainStore = defineStore('main', () => {
             groups: [],
             rules: '',
             resources: [],
-            raw_yaml: ''
+            raw_yaml: '',
+            process: defaultProcess()
         }
     })
     const groupNameError = ref(false)
@@ -108,7 +111,7 @@ export const useMainStore = defineStore('main', () => {
     return {
         resources, groups, userTemplates, stats,
         isLoggedIn, booting, resourcesReady, resourcesFailed, loginPassword, loginLoading,
-        theme, currentTab, resourceFilter, submitting, toast,
+        theme, currentTab, resourceFilter, resourceQuery, submitting, toast,
         batchMode, selectedResources,
         resourceModal, groupModal, templateModal, previewModal, settingsModal,
         resourceForm, groupForm, groupNameError,

@@ -18,10 +18,12 @@ export function registerGroupRoutes(app) {
 
     app.post('/groups', async (c) => {
         const body = await c.req.json();
-        const { config, clashConfig } = prepareGroupWrite(null, {
+        const prepared = prepareGroupWrite(null, {
             config: body.config || [],
             clash_config: body.clash_config || EMPTY_CLASH
         });
+        if (prepared.error) return c.json({ success: false, error: prepared.error }, 400);
+        const { config, clashConfig } = prepared;
         const problem = await chainProblem(c.env.DB, config, clashConfig);
         if (problem) return c.json({ success: false, error: problem }, 400);
         const token = generateToken();
@@ -40,6 +42,7 @@ export function registerGroupRoutes(app) {
         const existing = await c.env.DB.prepare('SELECT * FROM groups WHERE id = ?').bind(id).first();
         if (!existing) return c.json({ success: false, error: '聚合组不存在' }, 404);
         const prepared = prepareGroupWrite(existing, body);
+        if (prepared.error) return c.json({ success: false, error: prepared.error }, 400);
         if (prepared.changed) {
             const problem = await chainProblem(c.env.DB, prepared.config, prepared.clashConfig);
             if (problem) return c.json({ success: false, error: problem }, 400);
