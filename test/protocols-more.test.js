@@ -102,6 +102,21 @@ test('VLESS 加密原文、XHTTP 的 JSON 标签，以及残缺输入', () => {
     const node = parseUri('vless://b831381d-6324-4d53-ad4f-8cda48b30811@203.0.113.8:443?encryption=mlkem768x25519plus.native.example&security=tls&type=tcp&sni=example.com#enc');
     assert.equal(node.encryption, 'mlkem768x25519plus.native.example');
     assert.match(toUri(node), /encryption=mlkem768x25519plus\.native\.example/);
+    assert.match(toPublicNode(node).json, /"encryption": "mlkem768x25519plus\.native\.example"/);
+    const tuic = toPublicNode(parseUri('tuic://v4-token@203.0.113.8:443#tuic4'));
+    assert.match(tuic.json, /"token": "v4-token"/);
+    const carried = parseUri('vless://b831381d-6324-4d53-ad4f-8cda48b30811@203.0.113.8:443?encryption=none&security=tls&type=hysteria&auth=hy-auth&up=100&down=200&hysteriaVersion=2&sni=example.com#hytr');
+    assert.equal(carried.auth, 'hy-auth');
+    assert.equal(carried.up, '100');
+    assert.equal(carried.down, '200');
+    assert.equal(carried.version, '2');
+    const again = parseUri(toUri(carried));
+    assert.equal(again.auth, 'hy-auth');
+    assert.equal(again.version, '2');
+    const hyJson = toPublicNode(carried).json;
+    assert.match(hyJson, /hysteriaSettings/);
+    assert.match(hyJson, /"auth": "hy-auth"/);
+    assert.match(hyJson, /"version": 2/);
     const xhttp = toPublicNode(parseUri('vless://b831381d-6324-4d53-ad4f-8cda48b30811@203.0.113.8:443?encryption=none&security=tls&type=xhttp&path=%2Fx&mode=stream-one&sni=example.com#x'));
     assert.equal(xhttp.jsonLabel, 'Xray 出站 JSON');
     assert.match(xhttp.json, /xhttpSettings/);
@@ -111,4 +126,37 @@ test('VLESS 加密原文、XHTTP 的 JSON 标签，以及残缺输入', () => {
     assert.throws(() => parseUri('https://example.com/sub/path'), /远程导入/);
     assert.throws(() => parseUri('socks5://'), /格式无效|无法识别/);
     assert.throws(() => parseUri('unknown://203.0.113.8:1'), /无法识别的协议链接/);
+});
+
+test('parseSubscription 能识别新增分享链接，带路径的 http 会提示远程导入', () => {
+    const lines = [
+        `wireguard://${encodeURIComponent(PRIVATE_KEY)}@203.0.113.21:51820?publickey=${encodeURIComponent(PUBLIC_KEY)}#wg`,
+        `wg://${encodeURIComponent(PRIVATE_KEY)}@203.0.113.21:51820?publickey=${encodeURIComponent(PUBLIC_KEY)}#alias`,
+        'socks5://user:pass@203.0.113.8:1080#s5',
+        'socks://user:pass@203.0.113.8:1080#socks',
+        'socks4://user@203.0.113.8:1080#s4',
+        'http://203.0.113.9:8080#http',
+        'https://user:pass@203.0.113.8:443?sni=proxy.example#https',
+        'snell://psk-value@203.0.113.8:443?version=4#snell4',
+        'snell://psk-value@203.0.113.8:443?version=6&mode=default#snell6',
+        'ssh://user:pass@203.0.113.8:22#ssh',
+        'shadowtls://pass@203.0.113.8:443?version=3&sni=example.com#st',
+        'naive+https://user:pass@203.0.113.8:443#naive',
+        'naive+quic://user:pass@203.0.113.8:443#quic'
+    ];
+    const parsed = parseSubscription(lines.join('\n'));
+    assert.equal(parsed.format, 'uri');
+    assert.equal(parsed.errors.length, 0, parsed.errors.map(item => item.message).join(';'));
+    assert.deepEqual(parsed.nodes.map(node => node.type), [
+        'wireguard', 'wireguard', 'socks', 'socks', 'socks', 'http', 'http', 'snell', 'snell', 'ssh', 'shadowtls', 'naive', 'naive'
+    ]);
+    assert.equal(parsed.nodes[4].version, '4');
+    assert.equal(parsed.nodes[8].version, '6');
+    assert.equal(parsed.nodes[12].network, 'quic');
+
+    for (const line of ['https://example.com/sub/path', 'http://example.com/sub/path', 'https://example.com:443/api/sub']) {
+        const rejected = parseSubscription(line);
+        assert.equal(rejected.nodes.length, 0);
+        assert.match(rejected.errors[0].message, /这不是 HTTP 代理节点。带路径的地址请当作订阅链接，用远程导入/);
+    }
 });

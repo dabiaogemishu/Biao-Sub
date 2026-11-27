@@ -85,6 +85,16 @@ function xrayStream(node) {
             header: { type: node.kcp?.headerType || 'none' },
             seed: node.kcp?.seed || undefined
         });
+    } else if (node.network === 'hysteria') {
+        stream.network = 'hysteria';
+        const version = Number(node.version);
+        const settings = cleanObject({
+            version: Number.isInteger(version) && version > 0 ? version : undefined,
+            auth: node.auth || undefined,
+            up: node.up || undefined,
+            down: node.down || undefined
+        });
+        if (settings) stream.hysteriaSettings = settings;
     } else if (node.network === 'http' || node.network === 'h2') {
         stream.network = 'http';
         stream.httpSettings = cleanObject({ path: node.http?.path || '/', host: node.http?.host ? [node.http.host] : undefined });
@@ -164,7 +174,12 @@ function singboxOutbound(node) {
         const base = node.type === 'vmess'
             ? { type: 'vmess', uuid: node.uuid, security: node.cipher || 'auto', alter_id: node.alterId || 0 }
             : node.type === 'vless'
-                ? { type: 'vless', uuid: node.uuid, flow: node.flow || undefined }
+                ? {
+                    type: 'vless',
+                    uuid: node.uuid,
+                    flow: node.flow || undefined,
+                    encryption: node.encryption && node.encryption !== 'none' ? node.encryption : undefined
+                }
                 : { type: 'trojan', password: node.password };
         return {
             label: 'sing-box 出站 JSON',
@@ -197,6 +212,7 @@ function singboxOutbound(node) {
             label: 'sing-box 出站 JSON',
             object: cleanObject({
                 type: 'tuic', tag, ...dial, uuid: node.uuid || undefined, password: node.password || undefined,
+                token: node.token || undefined,
                 congestion_control: node.congestion || undefined, udp_relay_mode: node.udpRelayMode || undefined,
                 tls: tlsBlock({ ...node, tls: true })
             })

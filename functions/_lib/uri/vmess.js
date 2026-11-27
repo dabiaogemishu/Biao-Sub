@@ -29,6 +29,12 @@ function applyNet(node, config) {
         node.kcp = { headerType: config.type && config.type !== 'none' ? config.type : 'none', seed: path || config.seed || '' };
     } else if (net === 'hysteria') {
         node.network = 'hysteria';
+        if (config.auth) node.auth = String(config.auth);
+        if (config.up) node.up = String(config.up);
+        if (config.down) node.down = String(config.down);
+        if (config.hysteriaVersion === '1' || config.hysteriaVersion === '2' || config.hysteriaVersion === 1 || config.hysteriaVersion === 2) {
+            node.version = String(config.hysteriaVersion);
+        }
     } else {
         node.network = 'tcp';
     }
@@ -152,5 +158,11 @@ export function generateVmess(node) {
         alpn: (node.alpn || []).join(','),
         insecure: node.skipCertVerify ? '1' : '0'
     };
+    if (node.network === 'hysteria') {
+        if (node.auth) payload.auth = node.auth;
+        if (node.up) payload.up = node.up;
+        if (node.down) payload.down = node.down;
+        if (node.version === '1' || node.version === '2') payload.hysteriaVersion = node.version;
+    }
     return `vmess://${encodeBase64(JSON.stringify(payload))}`;
 }

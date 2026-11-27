@@ -62,11 +62,24 @@ const GENERATORS = {
     naive: generateNaive
 };
 
+const URI_SCHEME_TOKENS = [
+    'naive+https', 'naive+quic',
+    'ssr', 'vmess', 'vless', 'trojan',
+    'hysteria2', 'hysteria', 'hy2', 'hy',
+    'tuic', 'anytls',
+    'wireguard', 'wg', 'shadowtls', 'snell',
+    'socks5', 'socks4a', 'socks4', 'socks',
+    'ssh', 'https', 'http', 'ss'
+];
+
+export const URI_SCHEME_SOURCE = `(${URI_SCHEME_TOKENS.map(token => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;
+
 export function protocolOf(uri) {
     const text = String(uri || '').trim().toLowerCase();
-    if (text.startsWith('naive+https://') || text.startsWith('naive+quic://')) return 'naive';
-    const match = text.match(/^(ssr|vmess|vless|trojan|hysteria2|hysteria|hy2|hy|tuic|anytls|wireguard|wg|shadowtls|snell|socks5|socks4a|socks4|socks|ssh|https|http|ss):\/\//);
-    return match ? match[1] : '';
+    const match = text.match(new RegExp(`^${URI_SCHEME_SOURCE}://`));
+    if (!match) return '';
+    if (match[1] === 'naive+https' || match[1] === 'naive+quic') return 'naive';
+    return match[1];
 }
 
 export function parseUri(uri) {

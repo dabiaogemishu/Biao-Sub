@@ -1,10 +1,10 @@
 import { parse as parseYaml } from 'yaml';
 import { tryDecodeBase64 } from '../core/codec.js';
 import { summarizeErrors } from '../core/model.js';
-import { protocolOf, parseUri } from '../uri/index.js';
+import { protocolOf, parseUri, URI_SCHEME_SOURCE } from '../uri/index.js';
 import { clashProxyToNode } from '../clash/convert.js';
 
-const SCHEME_SOURCE = '(ssr|vmess|vless|trojan|hysteria2|hysteria|hy2|hy|tuic|anytls|ss):\\/\\/';
+const SCHEME_SOURCE = `${URI_SCHEME_SOURCE}://`;
 
 function looksLikeConfig(text) {
     return /:\/\//.test(text) || /(^|\n)\s*(proxies|Proxy)\s*:/.test(text);

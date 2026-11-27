@@ -74,6 +74,14 @@ export function applyShareParams(node, params) {
         };
     } else if (net === 'hysteria') {
         node.network = 'hysteria';
+        const auth = params.get('auth') || params.get('password') || '';
+        if (auth) node.auth = auth;
+        const up = params.get('up') || params.get('upmbps') || '';
+        const down = params.get('down') || params.get('downmbps') || '';
+        if (up) node.up = up;
+        if (down) node.down = down;
+        const version = params.get('hysteriaVersion') || params.get('hyver') || '';
+        if (version === '1' || version === '2') node.version = version;
     }
     return node;
 }
@@ -127,6 +135,11 @@ export function writeShareParams(params, node) {
     } else if (net === 'kcp') {
         if (node.kcp?.headerType) params.set('headerType', node.kcp.headerType);
         if (node.kcp?.seed) params.set('seed', node.kcp.seed);
+    } else if (net === 'hysteria') {
+        if (node.auth) params.set('auth', node.auth);
+        if (node.up) params.set('up', node.up);
+        if (node.down) params.set('down', node.down);
+        if (node.version === '1' || node.version === '2') params.set('hysteriaVersion', node.version);
     }
 }
 
