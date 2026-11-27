@@ -99,7 +99,7 @@ async function saveResource() {
     if (res.warnings?.length) showToast(`已保存，有链接未识别：${res.warnings[0].message}`, 'error')
     else showToast(store.resourceModal.isEdit ? '修改成功' : '添加成功')
     store.resourceModal.show = false
-    loadResources()
+    await loadResources()
   } catch (e) { showToast(e.message || '操作失败', 'error') }
   finally { store.submitting = false }
 }

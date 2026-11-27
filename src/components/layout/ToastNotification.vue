@@ -1,5 +1,5 @@
 <template>
-  <div v-if="store.toast.show" class="toast toast-bottom toast-end z-[1100]">
+  <div v-if="store.toast.show" class="toast toast-bottom toast-end biaosub-toast">
     <div class="alert shadow-lg text-white"
       :class="store.toast.type === 'success' ? 'alert-success' : 'alert-error'">
       <span>{{ store.toast.message }}</span>

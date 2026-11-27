@@ -95,8 +95,14 @@
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <div v-if="store.resources.length === 0" class="text-center py-16">
+    <div v-if="!store.resourcesReady" class="text-center py-16">
+      <span class="loading loading-spinner loading-md text-primary"></span>
+      <p class="text-adaptive-muted mt-3">正在加载资源...</p>
+    </div>
+    <div v-else-if="store.resourcesFailed" class="text-center py-16">
+      <p class="text-error text-lg">资源加载失败</p>
+    </div>
+    <div v-else-if="store.resources.length === 0" class="text-center py-16">
       <i class="fa-solid fa-box-open text-6xl text-adaptive-muted opacity-30 mb-4"></i>
       <p class="text-adaptive-muted text-lg">资源池为空，添加你的第一个资源</p>
     </div>
@@ -164,20 +170,25 @@ function selectAll() {
 async function deleteResource(id) {
   if (!confirm('确定删除？')) return
   try {
-    await authFetch(`${API}/subs/${id}`, { method: 'DELETE' })
+    const res = await authFetch(`${API}/subs/${id}`, { method: 'DELETE' })
+    if (!res.success) { showToast(res.error || '删除失败', 'error'); return }
+    store.resources = store.resources.filter(item => String(item.id) !== String(id))
     showToast('已删除')
-    loadResources()
+    await loadResources()
   } catch (e) { showToast('删除失败', 'error') }
 }
 
 async function batchDelete() {
   if (!confirm(`确定删除选中的 ${store.selectedResources.length} 个资源？`)) return
+  const ids = store.selectedResources.map(id => String(id))
   try {
-    await authFetch(`${API}/subs/delete`, { method: 'POST', body: { ids: store.selectedResources } })
-    showToast('批量删除成功')
+    const res = await authFetch(`${API}/subs/delete`, { method: 'POST', body: { ids: store.selectedResources } })
+    if (!res.success) { showToast(res.error || '删除失败', 'error'); return }
+    store.resources = store.resources.filter(item => !ids.includes(String(item.id)))
     store.selectedResources = []
     store.batchMode = false
-    loadResources()
+    showToast('批量删除成功')
+    await loadResources()
   } catch (e) { showToast('删除失败', 'error') }
 }
 

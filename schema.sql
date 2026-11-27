@@ -51,3 +51,5 @@ ALTER TABLE subscriptions ADD COLUMN snapshot TEXT;
 ALTER TABLE groups ADD COLUMN cached_yaml TEXT;
 ALTER TABLE groups ADD COLUMN access_count INTEGER DEFAULT 0;
 ALTER TABLE groups ADD COLUMN last_accessed TEXT;
+ALTER TABLE subscriptions ADD COLUMN sort_order INTEGER DEFAULT 0;
+ALTER TABLE groups ADD COLUMN sort_order INTEGER DEFAULT 0;

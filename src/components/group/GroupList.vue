@@ -71,6 +71,7 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups } from '../../api/index.js'
 import { showToast, copyText } from '../../utils/helpers.js'
+import { moveItem, subscriptionLinks } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 import { defaultHeader, defaultRules } from '../../api/config.js'
 
@@ -111,16 +112,18 @@ function openEditGroup(g) {
 }
 
 function copyLink(token, format) {
-  const base = `${window.location.origin}/api/g/${token}`
-  copyText(format === 'base64' ? `${base}?format=base64` : base)
+  const links = subscriptionLinks(window.location.origin, token)
+  copyText(format === 'base64' ? links.base64 : links.clash)
 }
 
 async function deleteGroup(id) {
   if (!confirm('确定删除该聚合组？')) return
   try {
-    await authFetch(`${API}/groups/${id}`, { method: 'DELETE' })
+    const res = await authFetch(`${API}/groups/${id}`, { method: 'DELETE' })
+    if (!res.success) { showToast(res.error || '删除失败', 'error'); return }
+    store.groups = store.groups.filter(item => String(item.id) !== String(id))
     showToast('已删除')
-    loadGroups()
+    await loadGroups()
   } catch (e) { showToast('删除失败', 'error') }
 }
 
@@ -136,10 +139,26 @@ async function initSortable() {
       animation: 150,
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
-      onEnd: async () => {
-        const order = Array.from(groupListRef.value.children).map(el => parseInt(el.dataset.id))
-        try { await authFetch(`${API}/groups/reorder`, { method: 'POST', body: { order } }) }
-        catch (e) { console.error(e) }
+      onEnd: async (evt) => {
+        if (evt.oldIndex == null || evt.newIndex == null || evt.oldIndex === evt.newIndex) return
+        const previous = store.groups.slice()
+        const next = moveItem(store.groups, evt.oldIndex, evt.newIndex)
+        store.groups = next
+        try {
+          const res = await authFetch(`${API}/groups/reorder`, {
+            method: 'POST',
+            body: { order: next.map(item => item.id) }
+          })
+          if (!res.success) {
+            store.groups = previous
+            showToast(res.error || '排序保存失败', 'error')
+          }
+        } catch (e) {
+          store.groups = previous
+          showToast('排序保存失败', 'error')
+        }
+        await nextTick()
+        initSortable()
       }
     })
   } catch (e) { console.error('Sortable init failed:', e) }

@@ -23,6 +23,9 @@ export const useMainStore = defineStore('main', () => {
 
     // ============ 认证状态 ============
     const isLoggedIn = ref(false)
+    const booting = ref(true)
+    const resourcesReady = ref(false)
+    const resourcesFailed = ref(false)
     const loginPassword = ref('')
     const loginLoading = ref(false)
 
@@ -98,12 +101,13 @@ export const useMainStore = defineStore('main', () => {
         mode: 'auto',
         url: '',
         name: '',
-        ua: 'clash-verge/v1.7.7'
+        ua: 'clash-verge/v1.7.7',
+        error: ''
     })
 
     return {
         resources, groups, userTemplates, stats,
-        isLoggedIn, loginPassword, loginLoading,
+        isLoggedIn, booting, resourcesReady, resourcesFailed, loginPassword, loginLoading,
         theme, currentTab, resourceFilter, submitting, toast,
         batchMode, selectedResources,
         resourceModal, groupModal, templateModal, previewModal, settingsModal,

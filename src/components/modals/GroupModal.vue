@@ -1,6 +1,6 @@
 <template>
   <dialog class="modal" :class="{ 'modal-open': store.groupModal.show }">
-    <div class="modal-box glass-panel max-w-4xl w-11/12 p-0 overflow-hidden flex flex-col h-[90vh]">
+    <div class="modal-box biaosub-modal glass-panel max-w-4xl w-11/12 p-0 overflow-hidden flex flex-col h-[90vh] max-h-[90vh]">
       <!-- 头部 -->
       <div class="p-4 sm:p-6 pb-0 flex items-center justify-between">
         <h3 class="font-bold text-xl text-adaptive-white flex items-center gap-2">
@@ -26,7 +26,7 @@
       </div>
 
       <!-- 内容区 -->
-      <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+      <div class="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 pb-8 custom-scrollbar">
         <!-- 组名 -->
         <div class="form-control mb-4">
           <label class="label"><span class="label-text text-adaptive-muted">聚合组名称</span></label>
@@ -241,8 +241,17 @@
         </div>
       </div>
 
+      <div v-if="refreshedLinks" class="shrink-0 mx-4 sm:mx-6 mb-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
+        <p class="text-sm font-bold text-warning mb-2">新的订阅链接（旧链接已失效）</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-xs btn-outline btn-primary" @click="copyText(refreshedLinks.clash)">复制 Clash</button>
+          <button type="button" class="btn btn-xs btn-outline btn-secondary" @click="copyText(refreshedLinks.base64)">复制 Base64</button>
+        </div>
+        <p class="text-xs break-all mt-2 text-adaptive-white">{{ refreshedLinks.clash }}</p>
+      </div>
+
       <!-- 底部按钮 -->
-      <div class="p-4 sm:p-6 pt-0 flex justify-between items-center">
+      <div class="shrink-0 z-20 border-t border-panel-border px-4 sm:px-6 py-4 flex justify-between items-center" style="background: var(--panel-bg)">
         <div class="flex gap-2">
           <button v-if="store.groupForm.clash_config.mode !== 'raw'" @click="saveAsTemplate" class="btn btn-xs btn-ghost text-accent">
             <i class="fa-solid fa-bookmark mr-1"></i> 保存为模板
@@ -269,11 +278,17 @@ import { ref, watch, nextTick, computed } from 'vue'
 import { parse as parseYaml } from 'yaml'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups, loadTemplates } from '../../api/index.js'
-import { showToast } from '../../utils/helpers.js'
+import { showToast, copyText } from '../../utils/helpers.js'
+import { subscriptionLinks } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const uploadedFileName = ref('')
+const refreshedLinks = ref(null)
+
+watch(() => [store.groupModal.show, store.groupForm.id], () => {
+  if (!store.groupModal.show) refreshedLinks.value = null
+})
 const selectedResourceListRef = ref(null)
 const proxyGroupListRef = ref(null)
 const nodeNamesBySubId = ref({})
@@ -509,7 +524,7 @@ async function saveGroup() {
 
     showToast(store.groupModal.isEdit ? '修改成功' : '创建成功')
     store.groupModal.show = false
-    loadGroups()
+    await loadGroups()
   } catch (e) { showToast('操作失败', 'error') }
   store.submitting = false
 }
@@ -525,10 +540,18 @@ async function refreshToken() {
       showToast(res.error || '刷新失败', 'error')
       return
     }
-    const group = store.groups.find(item => item.id === store.groupForm.id)
+    const group = store.groups.find(item => String(item.id) === String(store.groupForm.id))
     if (group) group.token = res.token
-    showToast('Token已刷新')
-  } catch (e) { showToast('刷新失败', 'error') }
+    store.groupForm.token = res.token
+    const links = subscriptionLinks(window.location.origin, res.token)
+    refreshedLinks.value = links
+    let copied = false
+    try {
+      await navigator.clipboard.writeText(links.clash)
+      copied = true
+    } catch { copied = false }
+    showToast(copied ? 'Token已刷新，新的 Clash 链接已复制' : 'Token已刷新，请复制下方新链接')
+  } catch (e) { showToast(e.message || '刷新失败', 'error') }
 }
 
 async function saveAsTemplate() {

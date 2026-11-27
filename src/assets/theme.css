@@ -71,6 +71,53 @@ body {
     color: white !important;
 }
 
+.biaosub-toast {
+    z-index: 20000 !important;
+}
+
+.biaosub-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.35rem;
+}
+
+.biaosub-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: 2.5rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.biaosub-tab-resources {
+    background: hsl(var(--p)) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(87, 13, 248, 0.25);
+}
+
+.biaosub-tab-groups {
+    background: hsl(var(--a)) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(30, 206, 188, 0.25);
+}
+
+.biaosub-modal.modal-box {
+    overflow: hidden !important;
+}
+
+.collapse:not(.collapse-close):has(> input[type="checkbox"]:checked),
+.collapse:not(.collapse-close):has(> input[type="radio"]:checked) {
+    grid-template-rows: auto auto;
+    overflow: visible;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;

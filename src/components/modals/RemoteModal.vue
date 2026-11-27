@@ -39,6 +39,8 @@
         </label>
       </div>
 
+      <p v-if="store.remoteModal.error" class="text-error text-sm mb-2">{{ store.remoteModal.error }}</p>
+
       <div class="modal-action">
         <button class="btn btn-ghost" @click="store.remoteModal.show = false">取消</button>
         <button class="btn btn-success" @click="submitRemote" :disabled="store.remoteModal.loading">
@@ -55,16 +57,25 @@
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
+import { failureText } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 
+function showRemoteError(message) {
+    store.remoteModal.error = message
+    showToast(message, 'error')
+}
+
 async function submitRemote() {
-    if (!store.remoteModal.url) { showToast('请输入订阅链接', 'error'); return }
+    if (!String(store.remoteModal.url || '').trim()) {
+        showRemoteError('请输入订阅链接')
+        return
+    }
 
     store.remoteModal.loading = true
+    store.remoteModal.error = ''
     try {
-      // 提交时带上 UA 参数
       const res = await authFetch(`${API}/remote`, {
         method: 'POST',
         body: { 
@@ -73,17 +84,19 @@ async function submitRemote() {
           ua: store.remoteModal.ua 
         }
       })
-      if (res.success) {
+      if (res && res.success) {
         showToast(`导入成功：${res.data.nodeCount}个节点`)
         store.remoteModal.show = false
         store.remoteModal.url = ''
         store.remoteModal.name = ''
-        // UA 保持上次选择，不重置，方便用户连续操作
-        loadResources()
+        store.remoteModal.error = ''
+        await loadResources()
       } else {
-        showToast(res.error || '导入失败', 'error')
+        showRemoteError(failureText(res, res && res.status, '导入失败'))
       }
-    } catch (e) { showToast('导入失败', 'error') }
+    } catch (e) {
+        showRemoteError(e.message || '导入失败')
+    }
     store.remoteModal.loading = false
 }
 </script>

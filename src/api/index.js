@@ -1,5 +1,6 @@
 import { useMainStore } from '../stores/main.js'
 import { API } from './config.js'
+import { failureText } from '../utils/panel.js'
 
 // 封装授权请求
 const SESSION_KEY = 'biaosub_session'
@@ -25,10 +26,18 @@ export async function authFetch(url, options = {}) {
     }
     const res = await fetch(url, { ...options, headers })
     const data = await res.json().catch(() => ({ success: false, error: '响应不是 JSON' }))
+    if (!data || typeof data !== 'object') {
+        return { success: false, error: failureText(null, res.status), status: res.status }
+    }
     if (res.status === 401) {
         store.isLoggedIn = false
         writeSession('')
         throw new Error(data.error || '未登录或会话已过期')
+    }
+    if (!res.ok) {
+        data.success = false
+        data.error = failureText(data, res.status)
+        data.status = res.status
     }
     return data
 }
@@ -38,8 +47,18 @@ export async function loadResources() {
     const store = useMainStore()
     try {
         const data = await authFetch(`${API}/subs`)
-        if (data.success) store.resources = data.data
-    } catch (e) { console.error('loadResources failed:', e) }
+        if (data.success && Array.isArray(data.data)) {
+            store.resources = data.data
+            store.resourcesFailed = false
+        } else {
+            store.resourcesFailed = true
+        }
+    } catch (e) {
+        store.resourcesFailed = true
+        console.error('loadResources failed:', e)
+    } finally {
+        store.resourcesReady = true
+    }
 }
 
 // 加载聚合组

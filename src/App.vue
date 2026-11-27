@@ -1,10 +1,12 @@
 <template>
   <div :data-theme="store.theme" class="min-h-screen">
+    <div v-if="store.booting" class="min-h-screen"></div>
+
     <!-- 登录遮罩 -->
-    <LoginOverlay v-if="!store.isLoggedIn" />
+    <LoginOverlay v-else-if="!store.isLoggedIn" />
 
     <!-- 主应用 -->
-    <div v-if="store.isLoggedIn" class="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div v-else class="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
       <NavBar @openSettings="store.settingsModal.show = true" />
       <Dashboard />
     </div>
@@ -51,7 +53,7 @@ import RemoteModal from './components/modals/RemoteModal.vue'
 const store = useMainStore()
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   // 初始化主题
   const savedTheme = localStorage.getItem('theme') || 'dark'
   store.theme = savedTheme
@@ -61,11 +63,10 @@ onMounted(() => {
   localStorage.removeItem('auth_token')
   const token = sessionStorage.getItem('biaosub_session')
   if (token) {
+    await Promise.all([loadResources(), loadGroups(), loadTemplates()])
     store.isLoggedIn = true
-    loadResources()
-    loadGroups()
-    loadTemplates()
   }
+  store.booting = false
 })
 
 // 节点筛选器打开

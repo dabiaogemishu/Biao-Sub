@@ -44,12 +44,11 @@ async function handleLogin() {
     })
     const data = await res.json()
     if (data.success && data.token) {
-      store.isLoggedIn = true
       writeSession(data.token)
       store.loginPassword = ''
-      loadResources()
-      loadGroups()
-      loadTemplates()
+      store.resourcesReady = false
+      await Promise.all([loadResources(), loadGroups(), loadTemplates()])
+      store.isLoggedIn = true
       showToast('登录成功')
     } else {
       showToast(data.error || '密码错误', 'error')

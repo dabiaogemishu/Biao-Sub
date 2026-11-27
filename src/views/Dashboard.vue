@@ -61,6 +61,7 @@ function openRemote() {
   store.remoteModal.url = ''
   store.remoteModal.name = ''
   store.remoteModal.content = ''
+  store.remoteModal.error = ''
 }
 
 async function handleRefreshRemote(resource) {
@@ -69,7 +70,7 @@ async function handleRefreshRemote(resource) {
     const res = await authFetch(`${API}/remote/refresh/${resource.id}`, { method: 'POST' })
     if (res.success) {
       showToast(`刷新成功: ${res.data.nodeCount}个节点`)
-      loadResources()
+      await loadResources()
     } else {
       showToast(res.error || '刷新失败', 'error')
     }

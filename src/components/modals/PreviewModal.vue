@@ -95,6 +95,7 @@ import { ref, computed, nextTick } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
 import { showToast, copyText } from '../../utils/helpers.js'
+import { patchNodeCount } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -251,9 +252,10 @@ async function saveChanges() {
       return
     }
 
+    patchNodeCount(store.resources, store.previewModal.resourceId, kept.length)
     showToast('修改已保存')
-    loadResources()
     closePreview()
+    await loadResources()
   } catch (e) { showToast('保存失败', 'error') }
   saving.value = false
 }

@@ -11,7 +11,14 @@ function createDb(subs) {
     return {
         rows,
         prepare(sql) {
+            const listRows = () => {
+                if (!sql.includes('ORDER BY sort_order')) return rows;
+                return rows.slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || b.id - a.id);
+            };
             return {
+                async all() {
+                    return { results: listRows() };
+                },
                 bind(...args) {
                     return {
                         async run() {
@@ -56,11 +63,14 @@ function createDb(subs) {
                                 const ids = new Set(args.map(Number));
                                 return { results: subs.filter(sub => ids.has(Number(sub.id))) };
                             }
-                            return { results: rows };
+                            return { results: listRows() };
                         }
                     };
                 }
             };
+        },
+        async batch(statements) {
+            for (const statement of statements) await statement.run();
         }
     };
 }
@@ -179,4 +189,30 @@ test('保存拒绝无效链式目标和自链', async () => {
     const stored = JSON.parse(db.rows[0].config);
     assert.equal(stored[1].dialerProxy.group, '甲');
     assert.equal(JSON.parse(db.rows[0].clash_config).resources[1].dialerProxy.group, '甲');
+});
+
+test('聚合组拖拽顺序写入 sort_order，读取时按该顺序返回', async () => {
+    const db = createDb([]);
+    const app = appWith(db);
+    await app.request('/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '甲组', config: [], clash_config: { mode: 'generate', groups: [], rules: '' } })
+    });
+    await app.request('/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '乙组', config: [], clash_config: { mode: 'generate', groups: [], rules: '' } })
+    });
+    const saved = await app.request('/groups/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: [2, 1] })
+    });
+    assert.equal(saved.status, 200);
+    assert.equal((await saved.json()).success, true);
+    const listed = await app.request('/groups');
+    const body = await listed.json();
+    assert.deepEqual(body.data.map(item => item.name), ['乙组', '甲组']);
+    assert.deepEqual(body.data.map(item => item.sort_order), [0, 1]);
 });
