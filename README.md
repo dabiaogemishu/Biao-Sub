@@ -48,67 +48,44 @@ https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=base64   v2rayN 用�
 
 ## 用网页部署到 Cloudflare
 
-推荐全程用浏览器完成。你需要一个 Cloudflare 账号，以及 GitHub 上属于你的一份代码（自己的仓库，或从原仓库 Fork 出来），默认分支是 `main`。不用安装 Node.js，不用打开终端。
+Fork 之后不要改 GitHub 上的任何文件。数据库和密码只在 Cloudflare 控制台里配。全程用浏览器即可：一个 Cloudflare 账号，加上 GitHub 上属于你的仓库（Fork 或你自己的仓库），默认分支是 `main`。
 
 控制台语言跟着账号设置走。下面用 Cloudflare 文档里的英文按钮名；账号是中文时，括号里是常见译名，按位置点同一个按钮即可。
 
-这个程序只认 Cloudflare Pages + D1。接口入口是 `functions/api/[[route]].js`，数据库绑定名必须是 `DB`（代码读 `env.DB`）。仓库根目录的 `wrangler.toml` 里已经有 `pages_build_output_dir = "dist"` 和 `[[d1_databases]]`。因为有 `pages_build_output_dir`，Pages 把这个文件当作项目配置。只在控制台里绑一次 D1 不够：文件里的 `database_id` 必须是**你自己这只库**的 UUID。还是别人的 id，或是 `00000000-0000-0000-0000-000000000000`，发布阶段会报 **Error 8000022: Invalid database UUID**。密码不要写进这个文件。
+这个程序只跑在 Cloudflare Pages + D1 上。接口入口是 `functions/api/[[route]].js`，绑定名必须是 `DB`（代码读 `env.DB`）。`wrangler.toml` 只给本机调试，里面没有 `pages_build_output_dir`，所以 Pages 的 Git 部署不会把它当成线上配置。不要把 `pages_build_output_dir` 加回去。加回去之后，这份文件会盖掉你在控制台里保存的 D1 绑定；如果里面的 `database_id` 是空的、别人的，或是 `00000000-0000-0000-0000-000000000000`，发布会报 **Error 8000022: Invalid database UUID**。不要把 `ADMIN_PASSWORD` 写进仓库。
 
-先想好两个名字，后面两处要填成同一套：
-
-- `<PROJECT_NAME>`：Pages 项目名。只用小写字母、数字和短横线。它会变成 `https://<PROJECT_NAME>.pages.dev`。文件里现在的 `name` 是原站点用的，新建时请换成你自己的，并和后面的 Project name 完全一致。
-- `<DATABASE_NAME>`：D1 的名字。字母、数字和短横线，短于 32 个字符，例如 `biaosub-db`。
-
-### 1. 在 GitHub 网页上拿到自己的仓库
+### 1. 在 GitHub 上拿到带 `main` 的仓库
 
 1. 浏览器打开 <https://github.com/dabiaogemishu/Biao-Sub>。
-2. 这是原仓库。你没有写权限时，右上角点 **Fork**。
+2. 这是原仓库。右上角点 **Fork**。
 3. Owner 选你自己的 GitHub 账号。仓库名可以保持 `Biao-Sub`。点 **Create fork**。
 4. 完成后地址是 `https://github.com/<你的用户名>/Biao-Sub`。左上角分支下拉框应显示 `main`。没有 `main` 就不要继续，Pages 的生产分支必须先存在于 GitHub 上。
 
-已经有自己的仓库、并且 `main` 上是这份代码时，跳过 Fork，直接打开那个仓库。
+已经有自己的仓库、并且 `main` 上是这份代码时，不用再 Fork。不要打开 `wrangler.toml` 去改它。
 
-### 2. 在控制台创建 D1，并复制 Database ID
+### 2. 在控制台创建 D1
+
+记住库的名字就行。后面在下拉框里选它，不用把 Database ID 贴进仓库。
 
 1. 打开 <https://dash.cloudflare.com/> 并登录。
 2. 若账号下有多个账户，先在左上角选中要用来部署的那一个。后面的 D1 和 Pages 必须在同一个账户里。
 3. 打开 <https://dash.cloudflare.com/?to=/:account/workers-and-pages>。左侧 **Storage**（存储）里点 **D1 SQL database**（D1）。有的账号从 Workers & Pages 页面的侧栏就能看到 D1。
 4. 点 **Create Database**（创建数据库）。
-5. 名字填 `<DATABASE_NAME>`。Location hint（位置提示）可以不填。点 **Create**（创建）。
-6. 创建完成后会进入这只库的概览页。找到 **Database ID**，它是一串 `8-4-4-4-12` 形式的 UUID。复制下来，这就是 `<D1_DATABASE_ID>`。不要用全 0 的占位符。
+5. 名字自定，只用字母、数字和短横线，短于 32 个字符，例如 `biaosub-db`。Location hint（位置提示）可以不填。点 **Create**（创建）。
+6. 创建完成后停在这只库的概览页。记住页面标题上的库名，第 5 步要在下拉框里选中它。
 
 表不用在网页里手工建。站点第一次收到 `/api` 请求时，`functions/api/[[route]].js` 会自己 `CREATE TABLE`。`schema.sql` 只是同一套语句的存档，网页部署不用执行它。
 
-### 3. 在 GitHub 网页上改 `wrangler.toml`
+### 3. 把仓库连接到 Pages
 
-还是在你自己的仓库里，分支保持 `main`。
-
-1. 在文件列表里点开根目录的 `wrangler.toml`（不要点进子目录）。
-2. 右上角点铅笔图标 **Edit this file**（编辑此文件）。看不到铅笔、页面只让你 Fork，说明当前仓库你不能直接改，回到第 1 步用自己的 Fork。
-3. 只改三处，其余行不要动：
-   - `name = "..."` 改成 `name = "<PROJECT_NAME>"`
-   - `database_name = "..."` 改成 `database_name = "<DATABASE_NAME>"`，和第 2 步创建时填的名字一致
-   - `database_id = "..."` 改成 `database_id = "<D1_DATABASE_ID>"`，粘贴刚才复制的 Database ID
-4. `binding = "DB"` 保持这两个字，不要改成别的名字。`pages_build_output_dir = "dist"` 也保持不动。
-5. 不要在这个文件里写 `ADMIN_PASSWORD`，也不要把密码写进提交说明。
-6. 右上角点 **Commit changes...**（提交更改）。对话框里：
-   - 提交说明可以写成 `set D1 database id`
-   - 选中 **Commit directly to the `main` branch**（直接提交到 `main` 分支）。不要选创建新分支。
-   - 再点 **Commit changes**。
-7. 提交后页面回到文件内容。核对三行已经是你的项目名、库名和 UUID，并且 `binding = "DB"` 还在。
-
-改完之前不要去连接 Pages。文件里的 id 还是别人的或是全 0 时，第一次发布就会在日志里失败。
-
-### 4. 把仓库连接到 Pages
-
-1. 回到 Cloudflare，打开 <https://dash.cloudflare.com/?to=/:account/workers-and-pages>。确认左上角仍是第 2 步那个账户。
+1. 仍在同一个 Cloudflare 账户，打开 <https://dash.cloudflare.com/?to=/:account/workers-and-pages>。
 2. 点 **Create application**（创建应用程序）。
 3. 选择 **Pages** 这一页，再点 **Connect to Git**（连接到 Git）。不要选 Direct Upload（直接上传）。用 Git 创建之后，不能再改成 Direct Upload。
 4. 选 **GitHub**。第一次会跳到 GitHub：
    - 安装 **Cloudflare Workers & Pages** 这个 GitHub App。账户选你的用户（或拥有该仓库的组织）。
    - Repository access 选 **All repositories**（所有仓库），或 **Only select repositories**（仅选定的仓库）并勾上你的 `Biao-Sub`。
    - 点 **Install & Authorize**（安装并授权）。这是安装和授权两步，GitHub 会分开展示。授权只代表「你是谁」，安装才决定「能看见哪些仓库」。
-5. 回到 Cloudflare 后，账户列表里应有你的 GitHub 账号。点进账号，仓库列表里选你的 `Biao-Sub`。列表只显示当前 GitHub 用户有权访问、并且 App 已被授权的仓库。
+5. 回到 Cloudflare 后，账户列表里应有你的 GitHub 账号。点进账号，仓库列表里选你的 Fork。列表只显示当前 GitHub 用户有权访问、并且 App 已被授权的仓库。
 6. 选中仓库后点 **Begin setup**（开始设置）。
 
 列表里没有这个仓库时：
@@ -118,41 +95,37 @@ https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=base64   v2rayN 用�
 - 你的 GitHub 账号根本不在列表里：打开 <https://github.com/settings/apps/authorizations>，找到 Cloudflare Workers & Pages，点 **Revoke**（撤销），再从第 4 步重新连接。换 GitHub 登录用户时也是这一步。
 - App 已安装但仍看不到仓库：打开 <https://github.com/settings/installations>，点 Cloudflare Workers & Pages 的 **Configure**（配置）。Repository access 改成包含这个仓库，保存后再回到 Cloudflare 刷新列表。组织账号先在 GitHub 右上角 **Switch settings context**（切换设置上下文）到该组织，或打开 `https://github.com/organizations/<组织名>/settings/installations`。
 
-### 5. 填写构建设置并做第一次部署
+### 4. 填写构建设置并做第一次部署
 
 进入 **Set up builds and deployments**（设置构建和部署）后，按下面填。框架预设选 **Vue** 时，构建命令和输出目录会自动变成这套，和本仓库一致；预设列表里没有 Vue 就手填。
 
 | 字段 | 填什么 |
 | --- | --- |
-| Project name（项目名称） | `<PROJECT_NAME>`，与 `wrangler.toml` 的 `name` 完全相同 |
+| Project name（项目名称） | `<PROJECT_NAME>`。小写字母、数字和短横线。这就是 `https://<PROJECT_NAME>.pages.dev`。名字被占用就另选一个，不用改仓库 |
 | Production branch（生产分支） | `main`。下拉里没有 `main`，说明 GitHub 上还没有这个分支，回到第 1 步 |
 | Framework preset（框架预设） | Vue |
 | Build command（构建命令） | `npm run build` |
 | Build output directory（构建输出目录） | `dist` |
 | Root directory (advanced) → Path（根目录） | 留空。代码在仓库根目录 |
 
-`npm run build` 就是 `vite build`，产物目录是 `dist`，和 `pages_build_output_dir` 一致。这一页先不要填 `ADMIN_PASSWORD`。
+`npm run build` 就是 `vite build`，产物目录是 `dist`。这一页先不要填 `ADMIN_PASSWORD`。
 
 点 **Save and Deploy**（保存并部署）。
 
 接下来是构建日志页：Pages 会安装依赖、执行 `npm run build`，再发布。成功时给出 `https://<PROJECT_NAME>.pages.dev`。点 **Continue to project**（继续前往项目）进入项目首页。这里能看到生产环境网址、对应的提交，以及部署列表。
 
-这次成功只说明静态页面上传了。绑定和密钥还没进「正在对外服务的那一次部署」。先做完第 6、7 步，再按第 8 步重新部署，然后才去打开网站登录。
+第一次部署可以在还没绑数据库、还没设密码时就成功。那一次线上版本没有 `DB`，也没有 `ADMIN_PASSWORD`。先做完第 5、6 步，再按第 7 步 Retry，然后才去登录。
 
-项目名已被占用时，这一页不会让你保存。另选一个 `<PROJECT_NAME>`，回到 GitHub 把 `wrangler.toml` 的 `name` 改成同一个字符串，直接提交到 `main`，再用新名字创建。
-
-### 6. 把 D1 绑成 `DB`（生产和预览各一次）
+### 5. 把 D1 绑成 `DB`（生产和预览各一次）
 
 1. 在该 Pages 项目里打开 **Settings**（设置）→ **Bindings**（绑定）。
 2. 先选 **Production**（生产环境）。点 **Add**（添加）→ **D1 database bindings**（D1 数据库绑定）。
-3. **Variable name**（变量名称）填 `DB`，三个字母都大写。**D1 database** 选第 2 步创建的那只库，不要选账户里其他库。保存。
+3. **Variable name**（变量名称）填 `DB`，三个字母都大写。**D1 database** 下拉框里选第 2 步创建的那只库。保存。
 4. 切到 **Preview**（预览环境），用同样的变量名 `DB` 和同一只库再添加一次。
 
-其他分支的部署是预览环境，不会替换 `https://<PROJECT_NAME>.pages.dev`。绑定只加在一边时，另一边的接口没有 `env.DB`。
+其他分支的部署是预览环境，不会替换 `https://<PROJECT_NAME>.pages.dev`。绑定只加在一边时，另一边的接口没有 `env.DB`。保存绑定之后，正在服务的那一版还不会变，要等第 7 步重新部署。
 
-控制台绑定不能代替 `wrangler.toml`。文件里的 `database_id` 仍然必须是这只库的 UUID，`binding` 仍然必须是 `DB`。
-
-### 7. 设置加密的 `ADMIN_PASSWORD`（生产和预览各一次）
+### 6. 设置加密的 `ADMIN_PASSWORD`（生产和预览各一次）
 
 1. 仍在 **Settings**，打开 **Variables and Secrets**（变量和机密）→ **Add**（添加）。
 2. 环境选 **Production**。变量名填 `ADMIN_PASSWORD`。值填你自己定的管理密码。
@@ -161,31 +134,31 @@ https://<PROJECT_NAME>.pages.dev/api/g/<group-token>?format=base64   v2rayN 用�
 
 密钥必须在「使用它的那次部署」之前就存在。只保存、不重新部署时，线上仍是旧版本，登录会返回「服务端未配置 ADMIN_PASSWORD」。
 
-### 8. 重新部署，让绑定和密钥生效
+### 7. 重新部署，让绑定和密钥生效
 
 1. 打开项目的 **Deployments**（部署）。
 2. 点开最新的一次生产部署（分支是 `main`）。失败或成功都可以。
 3. 点 **Retry deployment**（重试部署）。
-4. 等状态变成成功。构建日志里不应再出现 Error 8000022。
+4. 等这次状态变成成功，再打开网站。
 
-Retry 使用同一次提交再构建。绑定和密钥是在这次重试之前保存的，所以这次部署会带上它们。若你是改完 `wrangler.toml` 才失败的，先确认 GitHub 上 `main` 已有新提交；推到 `main` 会自动开一次新的生产部署，不必再靠 Retry。
+Retry 使用同一次提交再构建。绑定和密钥是在这次重试之前保存的，所以这次部署会带上它们。
 
 构建日志里如果 Node.js 低于 18：回到 **Settings → Variables and Secrets**，为 Production 和 Preview 各加一个**不加密**的变量，名称 `NODE_VERSION`，值 `22`。本仓库没有 `.nvmrc`。Pages 当前的 v3 构建镜像默认就是 Node.js 22，一般不用加。加完后再 Retry deployment。
 
-### 9. 第一次登录，并做出订阅
+### 8. 第一次登录，并做出订阅
 
 1. 浏览器打开 `https://<PROJECT_NAME>.pages.dev`。刚部署完若打不开，等一分钟再试，或换一个网络。这是 `*.pages.dev` 的域名还没在你这边解析开，不是构建失败。
-2. 页面中央是登录卡，提示「请输入管理密码」。输入第 7 步的密码，点 **登录**。
+2. 页面中央是登录卡，提示「请输入管理密码」。输入第 6 步的密码，点 **登录**。
    - 什么都没输入就点登录：按钮下方显示「请输入密码」，不会发请求。
    - 密码不对：提示「密码错误」。
-   - 提示「服务端未配置 ADMIN_PASSWORD」：生产环境没加密保存这个变量，或保存之后没有重新部署。回到第 7、8 步。
+   - 提示「服务端未配置 ADMIN_PASSWORD」：生产环境没加密保存这个变量，或保存之后没有 Retry。回到第 6、7 步。
 3. 登录后默认在 **资源池**。添加一条自建节点链接，或一个机场订阅地址。
 4. 打开 **聚合订阅组** → **新建聚合组**。先选模板（默认、空白或托管 YAML），填写组名，勾选资源。需要链式时打开它，并选择策略组或其他已选节点，再 **创建**。
 5. 卡片上 **Clash（默认）** 复制的是 `https://<PROJECT_NAME>.pages.dev/api/g/<16位token>`。**Base64** 复制的是同一地址加上 `?format=base64`。把 Clash 地址填进 Clash Meta / Mihomo。启用了链式时，卡片上会写明 Base64 不含链式。
 
 ### 以后怎么更新
 
-- 改代码或 `wrangler.toml`：在 GitHub 网页上改文件，**Commit directly to the `main` branch**。Pages 会自动开始一次新的生产部署。进度看项目的 **Deployments**，对应提交应是你刚提交的那条。用自己电脑的 Git 把提交推进 `main` 也一样。
+- 改的是代码：在 GitHub 上把提交推进 `main`（网页或自己的 Git 都可以）。Pages 会自动开始一次新的生产部署。进度看项目的 **Deployments**。不要为了部署去改 `wrangler.toml`。
 - 只改了绑定或 `ADMIN_PASSWORD`、代码没变：到 **Deployments**，打开最新的生产部署，点 **Retry deployment**。不重试的话，正在服务的仍是上一版。
 - 提交到 `main` 以外的分支，得到的是预览部署，地址不是生产用的 `pages.dev` 根域名，也不会换掉生产站点。
 - 提交说明以 `[CF-Pages-Skip]`、`[Skip CI]` 或 `[CI Skip]` 开头时，Pages 会跳过这一次部署。
@@ -194,43 +167,39 @@ Retry 使用同一次提交再构建。绑定和密钥是在这次重试之前�
 
 ### 常见失败
 
-**构建日志出现 Error 8000022: Invalid database UUID。**  
-`wrangler.toml` 的 `database_id` 不是你这个 Cloudflare 账户里那只 D1 的 UUID。全 0 的 `00000000-0000-0000-0000-000000000000` 一定会这样。打开 D1 概览页，复制 Database ID。到 GitHub 编辑 `wrangler.toml`，只替换 `database_id`（名字不对就一起改 `database_name`），`binding` 仍是 `DB`，直接提交到 `main`。等自动部署完成，或到 **Deployments** 看这次新提交的结果。
-
-**连接 Git 时看不到仓库，或列表里没有你的 GitHub 账号。**  
-Cloudflare Workers & Pages 这个 GitHub App 没装到拥有仓库的账号上，或安装时没勾这个仓库。按第 4 步的 **Add GitHub account**、**Install & Authorize**，或到 <https://github.com/settings/installations> 里 **Configure**，把仓库加进 Repository access。组织仓库要有 Owner 或 GitHub App manager 权限。改完后回到 Cloudflare 刷新仓库列表，不用改代码。
+**第一次部署是成功的，但登录或保存数据失败。**  
+绑定和密钥加在了部署之后，线上还是没有它们的那一版。到 **Deployments**，打开最新的生产部署，点 **Retry deployment**，等成功再试。
 
 **登录提示「服务端未配置 ADMIN_PASSWORD」。**  
-生产环境的密钥没设，只设在 Preview，或设完后没有重新部署。到 **Settings → Variables and Secrets**，确认 Production 里有加密的 `ADMIN_PASSWORD`，Preview 也同样有。然后 **Deployments** → 打开最新生产部署 → **Retry deployment**。密码填错时页面写的是「密码错误」，空着提交时写的是「请输入密码」，都不是这一句。
+生产环境的密钥没设，只设在 Preview，或设完后没有重新部署。到 **Settings → Variables and Secrets**，确认 Production 里有加密的 `ADMIN_PASSWORD`，Preview 也同样有。然后 Retry。密码填错时页面写的是「密码错误」，空着提交时写的是「请输入密码」，都不是这一句。
 
 **能打开页面，但添加资源或聚合组失败。**  
-绑定变量名不是 `DB`，或只绑在 Preview 上。到 **Settings → Bindings**，Production 和 Preview 都是变量名 `DB`、选中你的那只 D1。同时确认 GitHub 上 `binding = "DB"`。保存后再 **Retry deployment**。
+绑定变量名不是 `DB`，或只绑在 Preview 上。到 **Settings → Bindings**，Production 和 Preview 都是变量名 `DB`、下拉框选中你的那只 D1。保存后再 Retry。不用改 GitHub 上的文件。
+
+**连接 Git 时看不到仓库，或列表里没有你的 GitHub 账号。**  
+Cloudflare Workers & Pages 这个 GitHub App 没装到拥有仓库的账号上，或安装时没勾这个仓库。按第 3 步的 **Add GitHub account**、**Install & Authorize**，或到 <https://github.com/settings/installations> 里 **Configure**，把仓库加进 Repository access。组织仓库要有 Owner 或 GitHub App manager 权限。改完后回到 Cloudflare 刷新仓库列表。
 
 **构建失败，日志里的 Node.js 低于 18。**  
-**Settings → Variables and Secrets** 为 Production 和 Preview 添加普通变量（不要点 Encrypt）：`NODE_VERSION` = `22`。再 **Retry deployment**。
+**Settings → Variables and Secrets** 为 Production 和 Preview 添加普通变量（不要点 Encrypt）：`NODE_VERSION` = `22`。再 Retry deployment。
+
+**构建日志出现 Error 8000022: Invalid database UUID。**  
+正常的网页部署不会走到这里，仓库里的 `wrangler.toml` 不再带数据库 ID，Pages 的 Git 部署也不读它。只有有人把 `pages_build_output_dir` 加回 `wrangler.toml`，并且 `database_id` 缺失或不是这个账户里的真实 UUID 时，才会再出现这个错误。把那一行删掉，不要提交数据库 ID，然后重新部署。D1 继续只在控制台里绑成 `DB`。
 
 ## 可选：用 Wrangler 命令行部署
 
-只有本机已经装了 Node.js、并且你更想用终端时才看这一节。网页步骤不需要这些命令。
+已经用上面的 Git 连接部署时，不需要这些命令。
+
+本机发布时，D1 仍然在控制台里绑成 `DB`（提交进仓库的 `wrangler.toml` 不是线上配置）。密码用下面的命令或控制台加密变量都可以。不要把 `pages_build_output_dir` 写进要提交的 `wrangler.toml`，也不要提交 `database_id`。若 `d1 create` 问要不要把绑定写进配置文件，选 **No**。
 
 ```bash
-git clone https://github.com/<你的用户名>/Biao-Sub.git
-cd Biao-Sub
 npm install
-npx wrangler@latest login
-npx wrangler@latest whoami
-npx wrangler@latest d1 create <DATABASE_NAME>
-```
-
-`d1 create` 成功时会打印 `database_id`，那就是 `<D1_DATABASE_ID>`。若问 `Would you like Wrangler to add it on your behalf?`，选 **No**，以免它写成不是 `DB` 的绑定名。然后手工改 `wrangler.toml`：`name` 为 `<PROJECT_NAME>`，`database_name` 为 `<DATABASE_NAME>`，`database_id` 为刚打印的 UUID，`binding` 保持 `DB`。
-
-```bash
 npm run build
+npx wrangler@latest login
 npx wrangler@latest pages project create <PROJECT_NAME> --production-branch main
 npx wrangler@latest pages secret put ADMIN_PASSWORD --project-name <PROJECT_NAME>
 npx wrangler@latest pages deploy dist --project-name <PROJECT_NAME> --branch main
 ```
 
-`pages secret put` 会提示你输入密码，不要把密码写进命令参数。密钥要在 `pages deploy` 之前写好；如果顺序反了，写完再部署一次。`npm test` 只在本机检查解析和输出，不需要 Cloudflare 账号。
+`pages secret put` 会提示你输入密码，不要把密码写进命令参数。密钥要在 `pages deploy` 之前写好；如果顺序反了，写完再部署一次。控制台绑定也要在这次部署之前加好。`npm test` 只在本机检查解析和输出，不需要 Cloudflare 账号。
 
-命令报 403、或提示令牌不能编辑 Pages / D1 时，`whoami` 先确认账户。改用 API 令牌的话，在控制台 **My Profile → API Tokens** 新建令牌，至少包含 Cloudflare Pages 和 D1 的编辑权限，再在终端设置 `CLOUDFLARE_API_TOKEN`。令牌不要写进仓库。这个变量会盖过 `wrangler login` 的登录态。
+命令报 403、或提示令牌不能编辑 Pages / D1 时，先确认登录的是正确账户。改用 API 令牌的话，在控制台 **My Profile → API Tokens** 新建令牌，至少包含 Cloudflare Pages 和 D1 的编辑权限，再在终端设置 `CLOUDFLARE_API_TOKEN`。令牌不要写进仓库。

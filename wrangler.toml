@@ -1,12 +1,14 @@
-# Pages project biaosub (biaosub.pages.dev).
-# D1 binding DB is the existing database biaosub-db.
-# ADMIN_PASSWORD stays in the Pages dashboard. Do not put it in this file.
+# 本文件只给本机 wrangler 使用。
+# Cloudflare Pages 的 Git 部署不会读取它。
+# 不要把 pages_build_output_dir 加回来，否则控制台里的绑定会被这份文件覆盖。
+# 线上请在控制台把 D1 绑成 DB，并设置密钥 ADMIN_PASSWORD。
+# 不要把密码或数据库 UUID 写进本文件。
 
 name = "biaosub"
 compatibility_date = "2024-12-01"
-pages_build_output_dir = "dist"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "biaosub-db"
-database_id = "7493fde3-e221-4a46-b11d-e6917e97ac94"
+# 本机调试若要连 D1，只在自己电脑上临时加上下面几行，不要提交：
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "<DATABASE_NAME>"
+# database_id = "<D1_DATABASE_ID>"
