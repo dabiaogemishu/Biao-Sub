@@ -3,6 +3,7 @@ import { handle } from 'hono/cloudflare-pages';
 import { readBearer, verifySession } from '../_lib/auth.js';
 import { ALTER_TABLES, CREATE_TABLES } from '../_lib/schema.js';
 import { registerAuthRoutes } from '../_lib/routes/auth.js';
+import { registerSettingsRoutes } from '../_lib/routes/settings.js';
 import { registerBackupRoutes } from '../_lib/routes/backup.js';
 import { registerGroupRoutes } from '../_lib/routes/group.js';
 import { registerOutputRoutes } from '../_lib/routes/output.js';
@@ -49,5 +50,6 @@ registerRemoteRoutes(app);
 registerTemplateRoutes(app);
 registerAuthRoutes(app);
 registerBackupRoutes(app);
+registerSettingsRoutes(app);
 
 export const onRequest = handle(app);

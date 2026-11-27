@@ -1,4 +1,5 @@
 import { parseJson } from '../core/model.js';
+import { loadProxy } from '../proxy-settings.js';
 import { fetchSubscription, performRemoteRefresh } from '../remote-service.js';
 import { canonicalize } from '../subscribe/store.js';
 
@@ -9,7 +10,8 @@ export function registerRemoteRoutes(app) {
         if (!sourceUrl) return c.json({ success: false, error: '请输入订阅链接' }, 400);
         const ua = body.ua || 'clash-verge/v1.7.7';
         try {
-            const { content, subInfo } = await fetchSubscription(sourceUrl, ua);
+            const proxy = await loadProxy(c.env.DB);
+            const { content, subInfo } = await fetchSubscription(sourceUrl, ua, proxy);
             const stored = canonicalize(content);
             if (!stored.ok) return c.json({ success: false, error: stored.error }, 422);
             const name = body.name || subInfo.fileName || `远程订阅 (${stored.parsed.nodes.length}个节点)`;
@@ -30,7 +32,8 @@ export function registerRemoteRoutes(app) {
             if (!row) return c.json({ success: false, error: '资源不存在或不是远程订阅' }, 404);
             if (!row.source_url) return c.json({ success: false, error: '这条远程订阅没有来源地址' }, 400);
             const params = parseJson(row.params, {});
-            const { content, subInfo } = await fetchSubscription(row.source_url, params.ua);
+            const proxy = await loadProxy(c.env.DB);
+            const { content, subInfo } = await fetchSubscription(row.source_url, params.ua, proxy);
             const result = await performRemoteRefresh(c.env.DB, id, content, subInfo);
             if (!result.ok) return c.json({ success: false, error: result.error }, result.status || 422);
             return c.json({ success: true, data: { nodeCount: result.nodeCount, subInfo: result.subInfo }, warnings: result.warnings || [] });

@@ -43,6 +43,12 @@ CREATE TABLE IF NOT EXISTS templates (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Key/value panel settings. Existing subscriptions, groups and templates are left untouched.
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 -- Upgrades for databases created by older BiaoSUB versions.
 -- Ignore "duplicate column name" if a column is already there.
 ALTER TABLE subscriptions ADD COLUMN source_url TEXT;

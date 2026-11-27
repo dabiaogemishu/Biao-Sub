@@ -3,6 +3,8 @@ import { parseSubscription } from './subscribe/parse.js';
 import { toUri } from './uri/index.js';
 import { planRemoteRefresh } from './groups/membership.js';
 import { rebuildCachesFor } from './output/render.js';
+import { validateEnabledProxy } from './proxy-settings.js';
+import { fetchViaProxy } from './socks5.js';
 
 export function rowToSubscription(row) {
     return {
@@ -35,11 +37,17 @@ export async function performRemoteRefresh(db, id, text, subInfo = {}) {
     return { ok: true, nodeCount: links.length, subInfo: info, warnings: parsed.errors };
 }
 
-export async function fetchSubscription(url, ua) {
+export async function fetchSubscription(url, ua, proxy, deps) {
+    if (proxy?.enabled) {
+        const problem = validateEnabledProxy(proxy);
+        if (problem) throw new Error(problem);
+        return fetchViaProxy(url, ua, proxy, deps);
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
+    const doFetch = deps?.fetch || fetch;
     try {
-        const response = await fetch(url, {
+        const response = await doFetch(url, {
             signal: controller.signal,
             headers: {
                 'User-Agent': ua || 'clash-verge/v1.7.7',
@@ -48,7 +56,7 @@ export async function fetchSubscription(url, ua) {
             redirect: 'follow'
         });
         if (response.status === 401 || response.status === 403) {
-            throw new Error(`远程服务器拒绝访问（${response.status}）。机场可能屏蔽了 Cloudflare 出口，请改用手动粘贴订阅内容。`);
+            throw new Error(`远程服务器拒绝访问（${response.status}）。机场可能屏蔽了 Cloudflare 出口，可在系统设置里启用 SOCKS5 代理，或改用手动粘贴订阅内容。`);
         }
         if (!response.ok) throw new Error(`远程订阅返回 HTTP ${response.status}`);
         const content = await response.text();
