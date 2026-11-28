@@ -47,7 +47,7 @@ async function handlePreview(resource) {
       if (res.data.errors?.length) showToast(res.data.errors[0].message, 'error')
     } else {
       store.previewModal.nodes = []
-      showToast(res.error || '没有识别到节点', 'error')
+      showToast(res.error || '没有识别到节点，请检查这份资源的内容', 'error')
     }
   } catch (e) {
     store.previewModal.nodes = []
@@ -65,17 +65,17 @@ function openRemote() {
 }
 
 async function handleRefreshRemote(resource) {
-  if (!confirm(`刷新远程订阅: ${resource.name}？`)) return
+  if (!confirm(`重新拉取「${resource.name}」的最新节点？拉取成功后会替换当前节点。`)) return
   try {
     const res = await authFetch(`${API}/remote/refresh/${resource.id}`, { method: 'POST' })
     if (res.success) {
-      showToast(`刷新成功: ${res.data.nodeCount}个节点`)
+      showToast(`已更新，共 ${res.data.nodeCount} 个节点`)
       await loadResources()
     } else {
-      showToast(res.error || '刷新失败', 'error')
+      showToast(res.error || '重新拉取失败', 'error')
     }
   } catch (e) {
-    showToast('刷新失败', 'error')
+    showToast('重新拉取失败', 'error')
   }
 }
 </script>

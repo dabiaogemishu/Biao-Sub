@@ -4,7 +4,7 @@
       <span class="brand-mark !w-10 !h-10 text-base flex-shrink-0"><i class="fa-solid fa-bolt"></i></span>
       <div class="leading-tight">
         <div class="text-lg sm:text-xl font-bold text-adaptive-white">BiaoSUB</div>
-        <div class="hidden sm:block text-xs text-adaptive-muted">订阅聚合面板</div>
+        <div class="hidden sm:block text-xs text-adaptive-muted">把多个节点合成一条订阅</div>
       </div>
     </div>
     <div class="flex-none flex gap-1">
@@ -14,9 +14,9 @@
         <i v-else class="fa-solid fa-moon text-lg text-adaptive-muted"></i>
       </button>
       <button @click="$emit('openSettings')" class="btn btn-circle btn-sm sm:btn-md btn-ghost tooltip tooltip-bottom"
-        data-tip="设置"><i class="fa-solid fa-gear text-lg"></i></button>
+        data-tip="系统设置：备份和远程订阅代理"><i class="fa-solid fa-gear text-lg"></i></button>
       <button @click="logout" class="btn btn-circle btn-sm sm:btn-md btn-ghost text-red-400 tooltip tooltip-bottom"
-        data-tip="退出"><i class="fa-solid fa-power-off text-lg"></i></button>
+        data-tip="退出登录"><i class="fa-solid fa-power-off text-lg"></i></button>
     </div>
   </div>
 </template>

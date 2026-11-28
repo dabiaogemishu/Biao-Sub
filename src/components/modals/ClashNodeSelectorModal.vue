@@ -12,7 +12,7 @@
 
       <p class="text-xs text-adaptive-muted mb-4">
         <i class="fa-solid fa-circle-info text-primary mr-1"></i>
-        此节点将按 Clash 配置中的资源来对生成。
+        这里列出当前聚合组已选资源里的节点，勾选后会加入这个策略组。
       </p>
 
       <!-- 已选节点数量 -->
@@ -28,7 +28,7 @@
       <div v-if="store.clashNodeSelector.tempSelected.length > 0" class="mb-4 p-3 rounded-lg bg-base-300/50 border border-panel-border">
         <div class="flex items-center gap-2 mb-2">
           <i class="fa-solid fa-grip text-primary text-xs"></i>
-          <span class="text-xs text-adaptive-muted font-semibold">已选择 (拖动可排序):</span>
+          <span class="text-xs text-adaptive-muted font-semibold">已选择（拖动可调整顺序）:</span>
         </div>
         <div ref="selectedTagsRef" class="flex flex-wrap gap-1.5">
           <span v-for="name in store.clashNodeSelector.tempSelected" :key="name"
@@ -46,7 +46,7 @@
       <div v-if="filteredGroupNames.length > 0" class="mb-4">
         <div class="flex items-center gap-2 mb-2">
           <i class="fa-solid fa-sitemap text-accent text-xs"></i>
-          <span class="text-xs text-adaptive-muted font-semibold">可选策略组 (引用组名):</span>
+          <span class="text-xs text-adaptive-muted font-semibold">其他策略组（引用整个组）:</span>
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span v-for="name in filteredGroupNames" :key="name"
@@ -62,7 +62,7 @@
       <div v-if="groupResources.length > 0" class="mb-4">
         <div class="flex items-center gap-2 mb-2">
           <i class="fa-solid fa-cubes text-warning text-xs"></i>
-          <span class="text-xs text-adaptive-muted font-semibold">可选节点组 (引用整组节点):</span>
+          <span class="text-xs text-adaptive-muted font-semibold">整组加入（一次加入该资源全部节点）:</span>
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span v-for="res in groupResources" :key="res.name"
@@ -78,7 +78,7 @@
       <div class="mb-4">
         <div class="flex items-center gap-2 mb-2">
           <i class="fa-solid fa-shield-halved text-success text-xs"></i>
-          <span class="text-xs text-adaptive-muted font-semibold">内置:</span>
+          <span class="text-xs text-adaptive-muted font-semibold">内置选项:</span>
         </div>
         <div class="flex flex-wrap gap-1.5">
           <span v-for="name in ['DIRECT', 'REJECT']" :key="name"
@@ -94,7 +94,7 @@
       <div v-if="nodeResources.length > 0" class="mb-4">
         <div class="flex items-center gap-2 mb-2">
           <i class="fa-solid fa-server text-info text-xs"></i>
-          <span class="text-xs text-adaptive-muted font-semibold">单节点选择:</span>
+          <span class="text-xs text-adaptive-muted font-semibold">按单个节点选择:</span>
         </div>
         <!-- 独立节点 (type=node) 直接显示 -->
         <div v-for="res in nodeResources" :key="res.subId" class="mb-2">
@@ -211,7 +211,7 @@ function confirmSelection() {
     store.groupForm.clash_config.groups[groupIdx].proxies = [...store.clashNodeSelector.tempSelected]
   }
   store.clashNodeSelector.show = false
-  showToast('节点选择已保存')
+  showToast('策略组里的节点已更新')
 }
 
 // 已选标签拖拽排序

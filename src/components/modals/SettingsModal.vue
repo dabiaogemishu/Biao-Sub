@@ -7,7 +7,8 @@
 
       <!-- 数据管理 -->
       <div class="mb-6">
-        <h4 class="font-bold text-sm text-adaptive-white mb-3">数据管理</h4>
+        <h4 class="font-bold text-sm text-adaptive-white mb-2">数据管理</h4>
+        <p class="text-xs text-adaptive-muted mb-3">导出或恢复本面板里的资源、聚合组和模板。导入默认会覆盖当前数据。</p>
         <div class="flex flex-wrap gap-2">
           <button @click="exportBackup" class="btn btn-sm btn-outline btn-primary gap-1">
             <i class="fa-solid fa-download"></i> 导出备份
@@ -21,15 +22,15 @@
 
       <!-- 远程订阅代理 -->
       <div class="mb-6">
-        <h4 class="font-bold text-sm text-adaptive-white mb-2">远程订阅代理</h4>
-        <p class="text-xs text-adaptive-muted mb-3">只用于拉取和刷新远程订阅。公开订阅、登录和其他接口不走这里。落地节点须是公网 SOCKS5，不支持 UDP。导出备份不含代理密码。</p>
+        <h4 class="font-bold text-sm text-adaptive-white mb-2">远程订阅代理（可选）</h4>
+        <p class="text-xs text-adaptive-muted mb-3">只用来拉取和刷新远程订阅，登录和公开订阅地址不走这里。请填写一个能从公网访问的 SOCKS5 代理（不支持 UDP）。导出备份不会带上代理密码。</p>
         <label class="flex items-center gap-2 mb-3 cursor-pointer">
           <input v-model="proxy.enabled" type="checkbox" class="toggle toggle-primary toggle-sm" />
           <span class="text-sm text-adaptive-white">启用 SOCKS5</span>
         </label>
         <div class="flex gap-2 mb-2">
           <input v-model="proxy.uri" type="text" class="input input-bordered bg-adaptive-input input-sm flex-1" placeholder="socks5://用户名:密码@主机:端口" autocomplete="off" />
-          <button type="button" class="btn btn-sm btn-outline" @click="applyProxyUri">识别</button>
+          <button type="button" class="btn btn-sm btn-outline" @click="applyProxyUri">从链接填入</button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
           <input v-model="proxy.host" type="text" class="input input-bordered bg-adaptive-input input-sm sm:col-span-2" placeholder="主机" autocomplete="off" />
@@ -54,7 +55,7 @@
       <div class="mb-6">
         <h4 class="font-bold text-sm text-adaptive-white mb-2">关于</h4>
         <p class="text-sm text-adaptive-muted">BiaoSUB v3.0 - Cloudflare Pages + D1</p>
-        <p class="text-xs text-adaptive-muted mt-1">自建节点聚合订阅管理面板</p>
+        <p class="text-xs text-adaptive-muted mt-1">把自建节点和机场订阅合成一条给客户端用的订阅</p>
       </div>
 
       <div class="modal-action">
@@ -215,7 +216,7 @@ async function exportBackup() {
       a.download = `biaosub-backup-${new Date().toISOString().slice(0, 10)}.json`
       a.click()
       URL.revokeObjectURL(url)
-      showToast('备份已导出')
+      showToast('备份已导出到下载文件')
     }
   } catch (e) { showToast('导出失败', 'error') }
 }
@@ -238,7 +239,7 @@ async function importBackup(e) {
 
     const res = await authFetch(`${API}/restore`, { method: 'POST', body: data })
     if (res.success) {
-      showToast('导入成功')
+      showToast('备份已恢复，当前数据已被替换')
       loadResources()
       loadGroups()
       loadTemplates()
@@ -246,7 +247,7 @@ async function importBackup(e) {
       showToast('导入失败: ' + (res.error || ''), 'error')
     }
   } catch (e) {
-    showToast('文件格式错误', 'error')
+    showToast('备份文件格式不对，请选择本面板导出的 JSON 文件', 'error')
   }
 
   e.target.value = '' // 重置

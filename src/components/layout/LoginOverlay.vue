@@ -6,8 +6,8 @@
           <span class="brand-mark text-xl"><i class="fa-solid fa-bolt"></i></span>
         </div>
         <h2 class="card-title justify-center text-2xl text-adaptive-white mb-1">BiaoSUB</h2>
-        <p class="text-adaptive-muted text-sm mb-6">把自建节点和机场订阅，聚成一条可用的订阅地址</p>
-        <input type="password" v-model="store.loginPassword" placeholder="管理密码"
+        <p class="text-adaptive-muted text-sm mb-6">先把节点或机场订阅放进资源池，再做成聚合组，把订阅链接复制到客户端</p>
+        <input type="password" v-model="store.loginPassword" placeholder="请输入管理密码"
           class="input input-bordered w-full bg-adaptive-input text-center text-lg tracking-widest"
           @keyup.enter="handleLogin" />
         <button class="btn btn-primary w-full mt-4" @click="handleLogin" :disabled="store.loginLoading">

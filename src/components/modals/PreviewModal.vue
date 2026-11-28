@@ -5,7 +5,7 @@
       <div class="p-4 sm:p-6 pb-0 flex items-center justify-between">
         <h3 class="font-bold text-xl text-adaptive-white flex items-center gap-2">
           <i class="fa-solid fa-eye text-primary"></i>
-          节点预览 <span class="badge badge-sm badge-ghost ml-2">{{ store.previewModal.nodes.length }}个</span>
+          查看节点 <span class="badge badge-sm badge-ghost ml-2">{{ store.previewModal.nodes.length }}个</span>
         </h3>
         <div class="flex gap-2 flex-wrap justify-end">
           <button @click="toggleSortMode" class="btn btn-xs gap-1"
@@ -63,9 +63,9 @@
           <!-- 操作按钮 -->
           <div class="flex gap-1 flex-shrink-0">
             <button type="button" @click="toggleFormat(i)" class="btn btn-ghost btn-xs">
-              {{ openFormat === i ? '收起' : 'JSON / YAML' }}
+              {{ openFormat === i ? '收起配置' : '查看配置（YAML / JSON）' }}
             </button>
-            <button @click="copyNode(node)" class="btn btn-ghost btn-xs tooltip" data-tip="复制链接">
+            <button @click="copyNode(node)" class="btn btn-ghost btn-xs tooltip" data-tip="复制这条节点的分享链接">
               <i class="fa-solid fa-copy"></i>
             </button>
             <button v-if="!deleteMode" @click="deleteSingleNode(i)" class="btn btn-ghost btn-xs text-error tooltip" data-tip="删除">
@@ -80,14 +80,14 @@
                 <span class="text-xs text-adaptive-muted">{{ node.yamlLabel || 'YAML' }}</span>
                 <button type="button" class="btn btn-ghost btn-xs" @click="copyText(node.yaml || '')">复制</button>
               </div>
-              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.yaml || '没有 YAML' }}</pre>
+              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.yaml || '没有可显示的 Clash YAML' }}</pre>
             </div>
             <div>
               <div class="flex items-center justify-between mb-1">
                 <span class="text-xs text-adaptive-muted">{{ node.jsonLabel || 'JSON' }}</span>
                 <button type="button" class="btn btn-ghost btn-xs" @click="copyText(node.json || '')">复制</button>
               </div>
-              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.json || '没有 JSON' }}</pre>
+              <pre class="text-xs whitespace-pre-wrap break-all bg-base-100 rounded-lg p-2 max-h-40 overflow-auto">{{ node.json || '没有可显示的 JSON' }}</pre>
             </div>
           </div>
         </div>
@@ -96,7 +96,7 @@
       <!-- 底部 -->
       <div class="p-4 sm:p-6 pt-3 flex justify-between items-center border-t border-panel-border">
         <button @click="copyAllNodes" class="btn btn-sm btn-ghost gap-1">
-          <i class="fa-solid fa-copy"></i> 复制全部
+          <i class="fa-solid fa-copy"></i> 复制全部节点链接
         </button>
         <div class="flex gap-2">
           <button class="btn btn-ghost btn-sm" @click="closePreview">关闭</button>

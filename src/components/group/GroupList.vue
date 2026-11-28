@@ -6,6 +6,7 @@
         <i class="fa-solid fa-plus"></i> 新建聚合组
       </button>
     </div>
+    <p class="text-xs text-adaptive-muted mb-4">把资源池里已添加的节点组合成一条订阅。按客户端复制 Clash、Base64 或 sing-box 链接，粘贴进去即可。</p>
 
     <!-- 聚合组列表 -->
     <div ref="groupListRef" class="grid gap-3 sm:gap-4">
@@ -27,7 +28,7 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="font-bold text-adaptive-white text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{{ g.name }}</h3>
                 <span class="badge badge-accent badge-sm">
-                  {{ isRawMode(g) ? '托管YAML' : `${(g.config || []).length}个资源` }}
+                  {{ isRawMode(g) ? '托管 YAML' : `${(g.config || []).length}个资源` }}
                 </span>
                 <span v-for="label in processBadges(g)" :key="label" class="badge badge-outline badge-sm">{{ label }}</span>
                 <span v-if="g.access_count" class="badge badge-ghost badge-sm">
@@ -36,27 +37,27 @@
               </div>
               <!-- 订阅链接 -->
               <div class="mt-2 flex flex-wrap gap-1 sm:gap-2">
-                <button @click="copyLink(g.token, 'clash')" class="btn btn-xs btn-outline btn-primary gap-1">
+                <button @click="copyLink(g.token, 'clash')" class="btn btn-xs btn-outline btn-primary gap-1 tooltip" data-tip="完整 Clash 订阅，含策略组、规则和链式代理">
                   <i class="fa-solid fa-copy"></i> Clash
                 </button>
-                <button @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1">
+                <button @click="copyLink(g.token, 'base64')" class="btn btn-xs btn-outline btn-secondary gap-1 tooltip" data-tip="给 v2rayN 等用的节点列表，不含链式">
                   <i class="fa-solid fa-copy"></i> Base64
                 </button>
-                <button @click="copyLink(g.token, 'singbox')" class="btn btn-xs btn-outline btn-accent gap-1">
+                <button @click="copyLink(g.token, 'singbox')" class="btn btn-xs btn-outline btn-accent gap-1 tooltip" data-tip="sing-box 出站配置，不含链式">
                   <i class="fa-solid fa-copy"></i> sing-box
                 </button>
-                <button @click="copyLink(g.token, 'list')" class="btn btn-xs btn-outline gap-1">
+                <button @click="copyLink(g.token, 'list')" class="btn btn-xs btn-outline gap-1 tooltip" data-tip="只有节点的 Clash 列表，可给 proxy-provider 用，不含链式">
                   <i class="fa-solid fa-copy"></i> 节点列表
                 </button>
               </div>
-              <p v-if="hasChain(g)" class="text-xs text-warning mt-2">Base64、sing-box 和节点列表不含链式代理，链式只在完整 Clash 订阅里生效。</p>
+              <p v-if="hasChain(g)" class="text-xs text-warning mt-2 leading-relaxed">这个聚合组启用了链式代理。请复制「Clash」订阅使用；Base64、sing-box 和节点列表仍是普通节点，不含链式。</p>
             </div>
             <!-- 操作按钮 -->
             <div class="flex gap-1 flex-shrink-0">
-              <button @click="openEditGroup(g)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="编辑">
+              <button @click="openEditGroup(g)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="编辑这个聚合组">
                 <i class="fa-solid fa-pen"></i>
               </button>
-              <button @click="deleteGroup(g.id)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm text-error tooltip" data-tip="删除">
+              <button @click="deleteGroup(g.id)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm text-error tooltip" data-tip="删除这个聚合组">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </div>
@@ -68,7 +69,7 @@
     <!-- 空状态 -->
     <div v-if="store.groups.length === 0" class="text-center py-16">
       <i class="fa-solid fa-object-ungroup text-6xl text-adaptive-muted opacity-30 mb-4"></i>
-      <p class="text-adaptive-muted text-lg">暂无聚合组，创建一个吧</p>
+      <p class="text-adaptive-muted text-lg">还没有聚合组。把资源池里的节点组合起来，就能得到一条订阅链接。</p>
     </div>
   </div>
 </template>
@@ -135,7 +136,7 @@ function copyLink(token, format) {
 }
 
 async function deleteGroup(id) {
-  if (!confirm('确定删除该聚合组？')) return
+  if (!confirm('确定删除这个聚合组？删除后，这条订阅链接也会失效。')) return
   try {
     const res = await authFetch(`${API}/groups/${id}`, { method: 'DELETE' })
     if (!res.success) { showToast(res.error || '删除失败', 'error'); return }

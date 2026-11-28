@@ -4,22 +4,23 @@
       <h3 class="font-bold text-xl text-adaptive-white mb-6 flex items-center gap-2">
         <i class="fa-solid fa-wand-magic-sparkles text-accent"></i> 选择配置模板
       </h3>
+      <p class="text-xs text-adaptive-muted mb-4">先选一种 Clash 配置方式，下一步再勾选要加入的节点。</p>
 
       <div class="grid grid-cols-2 gap-4">
         <button @click="selectTemplate('default')" class="card bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all duration-300 border border-primary/20 hover:border-primary/50 p-4 text-center">
           <i class="fa-solid fa-file-shield text-3xl text-primary mb-2"></i>
           <div class="font-bold text-adaptive-white text-sm">默认模板</div>
-          <div class="text-xs text-adaptive-muted mt-1">预设完整Header + 规则</div>
+          <div class="text-xs text-adaptive-muted mt-1">已写好常用头部、Proxy 策略组和分流规则，适合直接用</div>
         </button>
         <button @click="selectTemplate('blank')" class="card bg-secondary/5 hover:bg-secondary/10 cursor-pointer transition-all duration-300 border border-secondary/20 hover:border-secondary/50 p-4 text-center">
           <i class="fa-solid fa-file text-3xl text-secondary mb-2"></i>
           <div class="font-bold text-adaptive-white text-sm">空白模板</div>
-          <div class="text-xs text-adaptive-muted mt-1">从零开始自定义配置</div>
+          <div class="text-xs text-adaptive-muted mt-1">不含那套长头部，仍带一个可用的 Proxy 选择组和默认规则</div>
         </button>
         <button @click="selectTemplate('raw')" class="card bg-warning/5 hover:bg-warning/10 cursor-pointer transition-all duration-300 border border-warning/20 hover:border-warning/50 p-4 text-center">
           <i class="fa-solid fa-cloud-arrow-up text-3xl text-warning mb-2"></i>
-          <div class="font-bold text-adaptive-white text-sm">托管YAML</div>
-          <div class="text-xs text-adaptive-muted mt-1">上传YAML配置文件托管</div>
+          <div class="font-bold text-adaptive-white text-sm">托管 YAML</div>
+          <div class="text-xs text-adaptive-muted mt-1">上传已有的 Clash 配置，用当前勾选的节点替换里面的节点</div>
         </button>
         <!-- 已保存模板 -->
         <button v-for="t in store.userTemplates" :key="t.id" @click="selectTemplate('custom', t)"
@@ -29,7 +30,7 @@
           </button>
           <i class="fa-solid fa-bookmark text-3xl text-accent mb-2"></i>
           <div class="font-bold text-adaptive-white text-sm truncate">{{ t.name }}</div>
-          <div class="text-xs text-adaptive-muted mt-1">自定义模板</div>
+          <div class="text-xs text-adaptive-muted mt-1">你保存过的模板</div>
         </button>
       </div>
 
@@ -92,7 +93,7 @@ function selectTemplate(type, template) {
 }
 
 async function deleteTemplate(id) {
-  if (!confirm('确定删除此模板？')) return
+  if (!confirm('确定删除这个模板？')) return
   try {
     await authFetch(`${API}/templates/${id}`, { method: 'DELETE' })
     showToast('模板已删除')

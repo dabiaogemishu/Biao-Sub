@@ -2,39 +2,41 @@
   <dialog class="modal" :class="{ 'modal-open': store.remoteModal.show }">
     <div class="modal-box glass-panel max-w-2xl">
       <h3 class="font-bold text-xl text-adaptive-white mb-6 flex items-center gap-2">
-        <i class="fa-solid fa-globe text-success"></i> 远程订阅
+        <i class="fa-solid fa-globe text-success"></i> 导入远程订阅
       </h3>
+
+      <p class="text-xs text-adaptive-muted mb-4">粘贴机场给你的订阅地址，面板会在线拉取节点并保存到资源池。</p>
 
       <!-- 订阅链接 -->
       <div class="form-control mb-4">
         <label class="label"><span class="label-text text-adaptive-muted">订阅链接</span></label>
-        <input v-model="store.remoteModal.url" type="text" placeholder="https://..."
+        <input v-model="store.remoteModal.url" type="text" placeholder="粘贴 https:// 开头的订阅地址"
           class="input input-bordered bg-adaptive-input w-full" />
       </div>
 
       <!-- 名称（可选） -->
       <div class="form-control mb-4">
         <label class="label"><span class="label-text text-adaptive-muted">名称（可选）</span></label>
-        <input v-model="store.remoteModal.name" type="text" placeholder="自动识别"
+        <input v-model="store.remoteModal.name" type="text" placeholder="留空则按订阅内容自动命名"
           class="input input-bordered bg-adaptive-input w-full" />
       </div>
 
       <!-- UA 选择（新增） -->
       <div class="form-control mb-6">
         <label class="label">
-          <span class="label-text text-adaptive-muted">客户端标识 (User-Agent)</span>
-          <div class="tooltip tooltip-left" data-tip="若导入失败或节点不全，请尝试切换此选项">
+          <span class="label-text text-adaptive-muted">告诉机场你是哪类客户端（User-Agent）</span>
+          <div class="tooltip tooltip-left" data-tip="如果导入失败或节点不全，试试换一个选项">
             <i class="fa-regular fa-circle-question text-adaptive-muted opacity-60"></i>
           </div>
         </label>
         <select v-model="store.remoteModal.ua" class="select select-bordered bg-adaptive-input w-full">
-          <option value="clash-verge/v1.7.7">Clash Verge (默认 - 获取 YAML)</option>
-          <option value="v2rayNG/1.8.5">v2rayNG (通用 - 获取 Base64 节点列表)</option>
-          <option value="ClashMeta/1.0">Clash Meta (Meta 格式)</option>
+          <option value="clash-verge/v1.7.7">Clash Verge（默认，适合拉取 Clash 配置）</option>
+          <option value="v2rayNG/1.8.5">v2rayNG（适合拉取普通节点列表）</option>
+          <option value="ClashMeta/1.0">Clash Meta（部分机场的 Meta 格式）</option>
         </select>
         <label class="label">
            <span class="label-text-alt text-adaptive-muted text-opacity-50">
-             某些机场的通用链接会根据客户端标识返回不同格式。如果遇到“无法解析”或“节点丢失”，通常切换到 v2rayNG 即可解决。
+             有的机场会按客户端类型返回不同内容。如果提示无法解析或节点变少，通常改成 v2rayNG 就能解决。
            </span>
         </label>
       </div>

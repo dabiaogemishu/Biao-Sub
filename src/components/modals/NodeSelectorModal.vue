@@ -10,11 +10,12 @@
       </div>
 
       <div v-else>
+        <p class="text-xs text-adaptive-muted mb-3">只把这份资源里勾选的节点放进聚合组。选「全部」则不过滤。</p>
         <div class="mb-4 flex gap-2">
           <button class="btn btn-xs" :class="store.nodeSelector.selected === 'all' ? 'btn-primary' : 'btn-ghost'"
             @click="selectAllNodes">全部</button>
           <button class="btn btn-xs" :class="store.nodeSelector.selected === 'custom' ? 'btn-accent' : 'btn-ghost'"
-            @click="store.nodeSelector.selected = 'custom'">自定义</button>
+            @click="store.nodeSelector.selected = 'custom'">自选节点</button>
         </div>
 
         <div v-if="store.nodeSelector.selected === 'custom'"
@@ -73,7 +74,7 @@ function confirm() {
     }
   }
   store.nodeSelector.show = false
-  showToast('筛选已应用')
+  showToast('已按所选节点进行筛选')
 }
 
 function cancel() {

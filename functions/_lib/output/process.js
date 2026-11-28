@@ -184,17 +184,17 @@ export function validateProcess(raw) {
 export function processLabels(raw) {
     const process = normalizeProcess(raw);
     const labels = [];
-    if (process.include) labels.push('保留筛选');
-    if (process.exclude) labels.push('排除筛选');
+    if (process.include) labels.push('只保留部分节点');
+    if (process.exclude) labels.push('已排除部分节点');
     if (process.protocols.length) labels.push(`协议 ${process.protocols.length} 种`);
     if (process.dropUseless) labels.push('去掉说明节点');
-    if (process.dedup) labels.push('去重');
+    if (process.dedup) labels.push('已去重');
     if (process.sort === 'name') labels.push('按名称排序');
     if (process.sort === 'name-desc') labels.push('按名称倒序');
-    if (process.rename.prefix || process.rename.suffix) labels.push('前后缀');
+    if (process.rename.prefix || process.rename.suffix) labels.push('已加前后缀');
     if (process.rename.appendType) labels.push('协议前缀');
     if (process.rename.emoji) labels.push('地区旗帜');
-    if (process.rename.rules.length) labels.push('正则重命名');
+    if (process.rename.rules.length) labels.push('名称替换');
     return labels;
 }
 

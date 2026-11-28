@@ -4,12 +4,12 @@
     <div class="flex flex-wrap gap-2 mb-4 sm:mb-6 items-center">
       <label class="input input-bordered input-sm sm:input-md bg-adaptive-input flex items-center gap-2 flex-1 min-w-[12rem] max-w-md">
         <i class="fa-solid fa-magnifying-glass text-adaptive-muted text-xs"></i>
-        <input v-model="store.resourceQuery" type="search" class="grow bg-transparent outline-none" placeholder="搜索资源名称" />
+        <input v-model="store.resourceQuery" type="search" class="grow bg-transparent outline-none" placeholder="搜索节点、节点组或订阅名称" />
       </label>
-      <button class="btn btn-primary btn-sm sm:btn-md gap-2 shadow-lg" @click="openAddResource">
+      <button class="btn btn-primary btn-sm sm:btn-md gap-2 shadow-lg tooltip tooltip-bottom" data-tip="粘贴节点分享链接，或把多条节点收成一个节点组" @click="openAddResource">
         <i class="fa-solid fa-plus"></i> 添加资源
       </button>
-      <button class="btn btn-secondary btn-sm sm:btn-md gap-2 shadow-lg" @click="$emit('openRemote')">
+      <button class="btn btn-secondary btn-sm sm:btn-md gap-2 shadow-lg tooltip tooltip-bottom" data-tip="填写机场订阅地址，在线拉取节点" @click="$emit('openRemote')">
         <i class="fa-solid fa-globe"></i> 远程订阅
       </button>
       <button class="btn btn-sm sm:btn-md gap-2" :class="store.batchMode ? 'btn-warning' : 'btn-ghost'" @click="toggleBatch">
@@ -24,6 +24,7 @@
         <button class="btn btn-xs btn-ghost" @click="store.selectedResources = []">取消</button>
       </div>
     </div>
+    <p class="text-xs text-adaptive-muted mb-3">「添加资源」用来粘贴节点链接；「远程订阅」用来填写机场订阅地址。要给客户端用时，再到「聚合组」里组合并复制链接。</p>
     <!-- 筛选按钮 -->
     <div class="flex gap-2 mb-4 flex-wrap">
       <button class="btn btn-xs gap-1" :class="store.resourceFilter === 'all' ? 'btn-primary' : 'btn-ghost border border-panel-border'" @click="store.resourceFilter = 'all'">
@@ -68,7 +69,7 @@
                 <h3 class="font-bold text-adaptive-white text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{{ r.name }}</h3>
                 <span class="badge badge-sm"
                   :class="r.type === 'node' ? 'badge-primary' : r.type === 'remote' ? 'badge-success' : r.type === 'group' ? 'badge-warning' : 'badge-secondary'">
-                  {{ r.type === 'node' ? '节点' : r.type === 'remote' ? '远程' : r.type === 'group' ? '节点组' : '订阅' }}
+                  {{ r.type === 'node' ? '自建' : r.type === 'remote' ? '远程订阅' : r.type === 'group' ? '节点组' : '订阅' }}
                 </span>
                 <span v-if="r.info && r.info.nodeCount" class="badge badge-ghost badge-sm">
                   <i class="fa-solid fa-diagram-project mr-1"></i> {{ r.info.nodeCount }}个节点
@@ -81,16 +82,16 @@
             </div>
             <!-- 操作按钮 -->
             <div class="flex gap-1 sm:gap-1 flex-shrink-0">
-              <button v-if="r.type === 'remote'" @click="$emit('refreshRemote', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="刷新">
+              <button v-if="r.type === 'remote'" @click="$emit('refreshRemote', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="重新拉取这份机场订阅的最新节点">
                 <i class="fa-solid fa-rotate"></i>
               </button>
-              <button @click="$emit('preview', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="查看节点">
+              <button @click="$emit('preview', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="查看、改名、排序或删除里面的节点">
                 <i class="fa-solid fa-eye"></i>
               </button>
-              <button @click="openEditResource(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="编辑">
+              <button @click="openEditResource(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="编辑这份资源">
                 <i class="fa-solid fa-pen"></i>
               </button>
-              <button @click="deleteResource(r.id)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm text-error tooltip" data-tip="删除">
+              <button @click="deleteResource(r.id)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm text-error tooltip" data-tip="删除这份资源">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </div>
@@ -104,11 +105,11 @@
       <p class="text-adaptive-muted mt-3">正在加载资源...</p>
     </div>
     <div v-else-if="store.resourcesFailed" class="text-center py-16">
-      <p class="text-error text-lg">资源加载失败</p>
+      <p class="text-error text-lg">资源加载失败，请刷新页面再试</p>
     </div>
     <div v-else-if="store.resources.length === 0" class="text-center py-16">
       <i class="fa-solid fa-box-open text-6xl text-adaptive-muted opacity-30 mb-4"></i>
-      <p class="text-adaptive-muted text-lg">资源池为空，添加你的第一个资源</p>
+      <p class="text-adaptive-muted text-lg">还没有资源。先点「添加资源」粘贴节点，或点「远程订阅」导入机场链接。</p>
     </div>
     <div v-else-if="filteredResources.length === 0" class="text-center py-12">
       <p class="text-adaptive-muted">没有符合筛选或搜索条件的资源</p>
@@ -144,10 +145,10 @@ function getUADisplay(r) {
     const ua = p.ua || 'clash-verge/v1.7.7' // 默认视为 Clash
     
     if (ua.includes('v2rayNG')) return { text: 'v2rayNG', class: 'badge-info badge-outline' }
-    if (ua.includes('ClashMeta')) return { text: 'Meta', class: 'badge-warning badge-outline' }
+    if (ua.includes('ClashMeta')) return { text: 'Clash Meta', class: 'badge-warning badge-outline' }
     if (ua.includes('clash-verge')) return { text: 'Clash', class: 'badge-primary badge-outline' }
     
-    return { text: 'Other', class: 'badge-ghost' }
+    return { text: '其他客户端', class: 'badge-ghost' }
   } catch (e) { return null }
 }
 
@@ -179,7 +180,7 @@ function selectAll() {
 }
 
 async function deleteResource(id) {
-  if (!confirm('确定删除？')) return
+  if (!confirm('确定删除这个资源？引用它的聚合组也会同时去掉这份资源。')) return
   try {
     const res = await authFetch(`${API}/subs/${id}`, { method: 'DELETE' })
     if (!res.success) { showToast(res.error || '删除失败', 'error'); return }
@@ -190,7 +191,7 @@ async function deleteResource(id) {
 }
 
 async function batchDelete() {
-  if (!confirm(`确定删除选中的 ${store.selectedResources.length} 个资源？`)) return
+  if (!confirm(`确定删除选中的 ${store.selectedResources.length} 个资源？引用它们的聚合组也会同时去掉这些资源。`)) return
   const ids = store.selectedResources.map(id => String(id))
   try {
     const res = await authFetch(`${API}/subs/delete`, { method: 'POST', body: { ids: store.selectedResources } })
@@ -198,7 +199,7 @@ async function batchDelete() {
     store.resources = store.resources.filter(item => !ids.includes(String(item.id)))
     store.selectedResources = []
     store.batchMode = false
-    showToast('批量删除成功')
+    showToast('已删除选中的资源')
     await loadResources()
   } catch (e) { showToast('删除失败', 'error') }
 }

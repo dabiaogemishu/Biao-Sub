@@ -15,16 +15,16 @@
       <!-- Tab 切换 -->
       <div class="tabs tabs-boxed mx-4 sm:mx-6 mt-4 p-1 flex-wrap">
         <a class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='base'}" @click="store.groupModal.tab='base'">
-          <i class="fa-solid fa-cubes mr-2"></i> 节点配置
+          <i class="fa-solid fa-cubes mr-2"></i> 选择资源
         </a>
         <a class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='process'}" @click="store.groupModal.tab='process'">
           <i class="fa-solid fa-sliders mr-2"></i> 节点处理
         </a>
         <a v-if="store.groupForm.clash_config.mode !== 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='clash'}" @click="store.groupModal.tab='clash'">
-          <i class="fa-solid fa-gears mr-2"></i> Clash配置
+          <i class="fa-solid fa-gears mr-2"></i> Clash 配置
         </a>
         <a v-if="store.groupForm.clash_config.mode === 'raw'" class="tab flex-1" :class="{'tab-active': store.groupModal.tab==='raw'}" @click="store.groupModal.tab='raw'">
-          <i class="fa-solid fa-cloud-arrow-up mr-2"></i> 托管YAML
+          <i class="fa-solid fa-cloud-arrow-up mr-2"></i> 托管 YAML
         </a>
       </div>
 
@@ -33,7 +33,7 @@
         <!-- 组名 -->
         <div class="form-control mb-4">
           <label class="label"><span class="label-text text-adaptive-muted">聚合组名称</span></label>
-          <input v-model="store.groupForm.name" type="text" placeholder="输入聚合组名称"
+          <input v-model="store.groupForm.name" type="text" placeholder="给这条订阅起个名字，例如 家用"
             class="input input-bordered bg-adaptive-input w-full"
             :class="{'input-error': store.groupNameError}" />
           <label v-if="store.groupNameError" class="label">
@@ -45,6 +45,7 @@
         <div v-show="store.groupModal.tab === 'base'">
           <!-- 选择资源 -->
           <div class="mb-4">
+            <p class="text-xs text-adaptive-muted mb-3">勾选要放进这个聚合组的资源。保存后，就可以复制订阅链接给客户端。</p>
             <div class="flex items-center justify-between mb-3">
               <h4 class="font-bold text-sm text-adaptive-white">选择资源</h4>
               <div class="flex items-center gap-2">
@@ -62,12 +63,13 @@
                   :checked="isResourceSelected(r.id)" @click.stop="toggleResource(r)" />
                 <span class="flex-1 text-sm text-adaptive-white truncate">{{ r.name }}</span>
                 <span class="badge badge-xs" :class="r.type === 'node' ? 'badge-primary' : r.type === 'group' ? 'badge-warning' : r.type === 'remote' ? 'badge-success' : 'badge-secondary'">
-                  {{ r.type === 'node' ? '节点' : r.type === 'group' ? '节点组' : r.type === 'remote' ? '远程' : '订阅' }}
+                  {{ r.type === 'node' ? '自建' : r.type === 'group' ? '节点组' : r.type === 'remote' ? '远程订阅' : '订阅' }}
                 </span>
                 <span v-if="r.info && r.info.nodeCount" class="text-xs text-adaptive-muted">{{ r.info.nodeCount }}节点</span>
                 <!-- 筛选按钮 -->
                 <button v-if="isResourceSelected(r.id) && r.info && r.info.nodeCount > 1"
-                  @click.stop="openNodeSelector(r)" class="btn btn-xs btn-ghost text-accent">
+                  @click.stop="openNodeSelector(r)" class="btn btn-xs btn-ghost text-accent tooltip tooltip-left"
+                  data-tip="只选用这份资源里的部分节点">
                   <i class="fa-solid fa-filter"></i>
                 </button>
               </div>
@@ -78,7 +80,7 @@
           <div v-if="store.groupForm.config.length > 0" class="mb-4">
             <div class="flex items-center justify-between mb-3">
               <h4 class="font-bold text-sm text-adaptive-white">已选资源排序</h4>
-              <span class="text-xs text-adaptive-muted">拖拽排序 · 可设置链式代理</span>
+              <span class="text-xs text-adaptive-muted">拖拽调整顺序。打开链式后，这一行是出口，下面选入口。</span>
             </div>
             <div ref="selectedResourceListRef" class="space-y-2">
               <div v-for="(c, i) in store.groupForm.config" :key="c.subId"
@@ -95,9 +97,9 @@
                     <i class="fa-solid fa-link text-[10px]"></i> 链式
                   </span>
                   <!-- 链式代理开关 -->
-                  <button @click="toggleDialerProxy(c)" class="btn btn-xs btn-ghost flex-shrink-0"
+                  <button @click="toggleDialerProxy(c)" class="btn btn-xs btn-ghost flex-shrink-0 tooltip tooltip-left"
                     :class="c.dialerProxy && c.dialerProxy.enabled ? 'text-warning' : 'text-adaptive-muted'"
-                    :data-tip="c.dialerProxy && c.dialerProxy.enabled ? '关闭链式代理' : '开启链式代理'">
+                    :data-tip="c.dialerProxy && c.dialerProxy.enabled ? '关闭链式代理' : '开启链式：把这一行当作出口（最后一跳）'">
                     <i class="fa-solid fa-link"></i>
                   </button>
                   <button @click="store.groupForm.config.splice(i, 1)" class="btn btn-xs btn-ghost text-error flex-shrink-0">
@@ -105,23 +107,28 @@
                   </button>
                 </div>
                 <!-- 链式代理选择 -->
-                <div v-if="c.dialerProxy && c.dialerProxy.enabled" class="px-3 pb-2 flex items-center gap-2 border-t border-panel-border pt-2 ml-7">
-                  <i class="fa-solid fa-arrow-right-arrow-left text-warning text-xs"></i>
-                  <span class="text-xs text-adaptive-muted whitespace-nowrap">链式目标:</span>
-                  <select v-model="c.dialerProxy.group" class="select select-bordered select-xs bg-adaptive-input flex-1 min-w-0">
-                    <option value="">请选择策略组或节点</option>
-                    <optgroup v-if="chainGroups().length" label="策略组">
-                      <option v-for="name in chainGroups()" :key="'group-' + name" :value="name">{{ name }}</option>
-                    </optgroup>
-                    <optgroup v-if="chainNodes(c).length" label="节点">
-                      <option v-for="name in chainNodes(c)" :key="'node-' + c.subId + '-' + name" :value="name">{{ name }}</option>
-                    </optgroup>
-                  </select>
+                <div v-if="c.dialerProxy && c.dialerProxy.enabled" class="px-3 pb-2 border-t border-panel-border pt-2 ml-7 space-y-2">
+                  <p class="text-xs text-adaptive-muted leading-relaxed">
+                    这一行的节点是<span class="font-semibold text-adaptive-white">出口（最后一跳）</span>。请选择<span class="font-semibold text-adaptive-white">入口（第一跳）</span>：流量先走入口，再从这些出口节点出去。
+                  </p>
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-right text-warning text-xs"></i>
+                    <span class="text-xs text-adaptive-muted whitespace-nowrap">入口（第一跳）:</span>
+                    <select v-model="c.dialerProxy.group" class="select select-bordered select-xs bg-adaptive-input flex-1 min-w-0">
+                      <option value="">请选择先经过的策略组或节点</option>
+                      <optgroup v-if="chainGroups().length" label="策略组（入口）">
+                        <option v-for="name in chainGroups()" :key="'group-' + name" :value="name">{{ name }}</option>
+                      </optgroup>
+                      <optgroup v-if="chainNodes(c).length" label="节点（入口）">
+                        <option v-for="name in chainNodes(c)" :key="'node-' + c.subId + '-' + name" :value="name">{{ name }}</option>
+                      </optgroup>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
-            <p v-if="chainActive" class="text-xs text-warning mt-2">
-              链式代理只写入 Clash 订阅。Base64 分享链接仍是普通节点，不包含链式。
+            <p v-if="chainActive" class="text-xs text-warning mt-2 leading-relaxed">
+              链式代理只写入完整 Clash 订阅。Base64 分享链接、sing-box 和节点列表仍是普通节点，不包含链式。
             </p>
           </div>
 
@@ -139,16 +146,16 @@
 
         <!-- Tab: 节点处理 -->
         <div v-show="store.groupModal.tab === 'process'">
-          <p class="text-xs text-adaptive-muted mb-4">这里的处理发生在已选资源和节点筛选之后，对 Clash、Base64、sing-box 和节点列表四种输出一并生效。现有聚合组不开启任何选项时，结果与以前相同。</p>
+          <p class="text-xs text-adaptive-muted mb-4">先按上面勾选的资源和筛选取出节点，再在这里统一过滤、去重、排序或改名。Clash、Base64、sing-box 和节点列表四种订阅都会套用这些处理。不开启任何选项时，结果和以前一样。</p>
           <div class="grid sm:grid-cols-2 gap-4 mb-4">
             <div class="form-control">
-              <label class="label"><span class="label-text text-adaptive-muted">保留（节点名正则）</span></label>
-              <input v-model="store.groupForm.clash_config.process.include" type="text" placeholder="例如 (?i)(港|HK|日本)"
+              <label class="label"><span class="label-text text-adaptive-muted">只保留名称匹配的节点</span></label>
+              <input v-model="store.groupForm.clash_config.process.include" type="text" placeholder="可填关键词或正则，例如 港 或 (?i)(港|HK|日本)"
                 class="input input-bordered input-sm bg-adaptive-input w-full" />
             </div>
             <div class="form-control">
-              <label class="label"><span class="label-text text-adaptive-muted">排除（节点名正则）</span></label>
-              <input v-model="store.groupForm.clash_config.process.exclude" type="text" placeholder="例如 (?i)(过期|剩余|官网)"
+              <label class="label"><span class="label-text text-adaptive-muted">排除名称匹配的节点</span></label>
+              <input v-model="store.groupForm.clash_config.process.exclude" type="text" placeholder="可填关键词或正则，例如 过期 或 (?i)(过期|剩余|官网)"
                 class="input input-bordered input-sm bg-adaptive-input w-full" />
             </div>
           </div>
@@ -184,13 +191,13 @@
           <h4 class="font-bold text-sm text-adaptive-white mb-3">重命名</h4>
           <div class="grid sm:grid-cols-2 gap-4 mb-3">
             <div class="form-control">
-              <label class="label"><span class="label-text text-adaptive-muted">前缀</span></label>
+              <label class="label"><span class="label-text text-adaptive-muted">名称前缀</span></label>
               <input v-model="store.groupForm.clash_config.process.rename.prefix" type="text" placeholder="例如 家宽-"
                 class="input input-bordered input-sm bg-adaptive-input w-full" />
             </div>
             <div class="form-control">
-              <label class="label"><span class="label-text text-adaptive-muted">后缀</span></label>
-              <input v-model="store.groupForm.clash_config.process.rename.suffix" type="text"
+              <label class="label"><span class="label-text text-adaptive-muted">名称后缀</span></label>
+              <input v-model="store.groupForm.clash_config.process.rename.suffix" type="text" placeholder="例如 -备用"
                 class="input input-bordered input-sm bg-adaptive-input w-full" />
             </div>
           </div>
@@ -205,13 +212,13 @@
             </label>
           </div>
           <div class="mb-2 flex items-center justify-between">
-            <h4 class="font-bold text-sm text-adaptive-white">正则替换</h4>
+            <h4 class="font-bold text-sm text-adaptive-white">替换节点名中的文字</h4>
             <button class="btn btn-xs btn-ghost text-accent" @click="addRenameRule"><i class="fa-solid fa-plus mr-1"></i>添加一条</button>
           </div>
           <div v-if="!store.groupForm.clash_config.process.rename.rules.length" class="text-xs text-adaptive-muted mb-2">例如把「专线」替换成空，或把「香港」统一成「HK」。</div>
           <div class="space-y-2">
             <div v-for="(rule, i) in store.groupForm.clash_config.process.rename.rules" :key="i" class="flex gap-2 items-center">
-              <input v-model="rule.pattern" type="text" placeholder="正则" class="input input-bordered input-sm bg-adaptive-input flex-1" />
+              <input v-model="rule.pattern" type="text" placeholder="要替换的文字或正则" class="input input-bordered input-sm bg-adaptive-input flex-1" />
               <input v-model="rule.replacement" type="text" placeholder="替换为" class="input input-bordered input-sm bg-adaptive-input flex-1" />
               <button class="btn btn-xs btn-ghost text-error" @click="store.groupForm.clash_config.process.rename.rules.splice(i, 1)">
                 <i class="fa-solid fa-xmark"></i>
@@ -222,10 +229,11 @@
 
         <!-- Tab: Clash配置 -->
         <div v-show="store.groupModal.tab === 'clash' && store.groupForm.clash_config.mode !== 'raw'">
+          <p class="text-xs text-adaptive-muted mb-4">这里设置完整 Clash 订阅里的策略组和分流规则。如果只用 v2rayN 的 Base64 链接，可以不改这一页。</p>
           <!-- 头部配置 -->
           <div class="collapse collapse-arrow bg-adaptive-input border border-panel-border mb-3">
             <input type="checkbox" />
-            <div class="collapse-title text-sm font-bold text-adaptive-white">头部配置 (Header)</div>
+            <div class="collapse-title text-sm font-bold text-adaptive-white">订阅头部（DNS、端口等基本设置）</div>
             <div class="collapse-content">
               <textarea v-model="store.groupForm.clash_config.header"
                 class="code-editor w-full h-48 textarea textarea-bordered bg-adaptive-input text-xs"
@@ -237,7 +245,7 @@
           <div class="collapse collapse-arrow bg-adaptive-input border border-panel-border mb-3">
             <input type="checkbox" checked />
             <div class="collapse-title text-sm font-bold text-adaptive-white">
-              策略组 (Proxy Groups) <span class="badge badge-xs badge-primary ml-2">{{ store.groupForm.clash_config.groups.length }}</span>
+              策略组（节点怎么分组、怎么选择） <span class="badge badge-xs badge-primary ml-2">{{ store.groupForm.clash_config.groups.length }}</span>
             </div>
             <div class="collapse-content">
               <button @click="addProxyGroup" class="btn btn-xs btn-primary mb-3">
@@ -261,13 +269,13 @@
                     </div>
                   </div>
                   <div v-if="pg.type === 'url-test' || pg.type === 'fallback'" class="grid grid-cols-3 gap-2 mb-2 ml-6">
-                    <input v-model="pg.url" class="input input-bordered input-xs bg-adaptive-input" placeholder="测速URL" />
+                    <input v-model="pg.url" class="input input-bordered input-xs bg-adaptive-input" placeholder="测速地址" />
                     <input v-model.number="pg.interval" type="number" class="input input-bordered input-xs bg-adaptive-input" placeholder="间隔(秒)" />
                     <input v-model.number="pg.tolerance" type="number" class="input input-bordered input-xs bg-adaptive-input" placeholder="容差(ms)" />
                   </div>
                   <div class="flex items-center gap-2 ml-6">
                     <label class="flex items-center gap-1 text-xs">
-                      <input type="checkbox" v-model="pg.useAllProxies" class="checkbox checkbox-xs" /> 使用全部节点
+                      <input type="checkbox" v-model="pg.useAllProxies" class="checkbox checkbox-xs" /> 使用本聚合组的全部节点
                     </label>
                     <button v-if="!pg.useAllProxies" @click="openClashNodeSelector(i)"
                       class="btn btn-xs btn-ghost text-accent">
@@ -287,7 +295,7 @@
           <!-- 规则配置 -->
           <div class="collapse collapse-arrow bg-adaptive-input border border-panel-border mb-3">
             <input type="checkbox" />
-            <div class="collapse-title text-sm font-bold text-adaptive-white">规则 (Rules)</div>
+            <div class="collapse-title text-sm font-bold text-adaptive-white">分流规则（哪些流量走哪个策略组）</div>
             <div class="collapse-content">
               <textarea v-model="store.groupForm.clash_config.rules"
                 class="code-editor w-full h-48 textarea textarea-bordered bg-adaptive-input text-xs"
@@ -301,11 +309,11 @@
         <div v-show="store.groupModal.tab === 'raw'">
           <!-- 文件上传区 -->
           <div class="mb-4">
-            <label class="label"><span class="label-text text-adaptive-muted">上传 YAML 配置文件</span></label>
+            <label class="label"><span class="label-text text-adaptive-muted">上传你现有的 Clash 配置文件</span></label>
             <div class="border-2 border-dashed border-panel-border rounded-lg p-6 text-center hover:border-warning/50 transition-colors cursor-pointer"
               @click="$refs.yamlFileInput.click()" @dragover.prevent @drop.prevent="handleFileDrop">
               <i class="fa-solid fa-cloud-arrow-up text-3xl text-warning mb-2"></i>
-              <p class="text-sm text-adaptive-muted">点击选择或拖拽 YAML 文件到此处</p>
+              <p class="text-sm text-adaptive-muted">点击选择或把 YAML 文件拖到这里</p>
               <p class="text-xs text-adaptive-muted mt-1">支持 .yaml / .yml 格式</p>
             </div>
             <input ref="yamlFileInput" type="file" accept=".yaml,.yml" class="hidden" @change="handleFileSelect" />
@@ -320,7 +328,7 @@
 
           <!-- YAML 预览/编辑 -->
           <div class="form-control">
-            <label class="label"><span class="label-text text-adaptive-muted">YAML 内容（可直接编辑）。已选节点会写入 proxies；头部、策略组和规则保留。同名代理用已选节点替换，其余上传代理保留，新节点追加在后面。</span></label>
+            <label class="label"><span class="label-text text-adaptive-muted">配置内容（可直接改）。已选节点会写入 proxies；原来的头部、策略组和规则会保留。名字相同的节点用已选节点替换，其余原节点保留，新节点加在后面。</span></label>
             <textarea v-model="store.groupForm.clash_config.raw_yaml"
               class="code-editor w-full h-96 textarea textarea-bordered bg-adaptive-input text-xs font-mono"
               placeholder="上传 YAML 文件或直接粘贴完整的 Clash 配置..."></textarea>
@@ -340,11 +348,11 @@
       <!-- 底部按钮 -->
       <div class="shrink-0 z-20 border-t border-panel-border px-4 sm:px-6 py-4 flex justify-between items-center" style="background: var(--panel-bg)">
         <div class="flex gap-2">
-          <button v-if="store.groupForm.clash_config.mode !== 'raw'" @click="saveAsTemplate" class="btn btn-xs btn-ghost text-accent">
+          <button v-if="store.groupForm.clash_config.mode !== 'raw'" @click="saveAsTemplate" class="btn btn-xs btn-ghost text-accent tooltip" data-tip="把当前 Clash 配置存下来，下次新建聚合组时可以直接选用">
             <i class="fa-solid fa-bookmark mr-1"></i> 保存为模板
           </button>
           <button v-if="store.groupModal.isEdit" @click="refreshToken" class="btn btn-xs btn-ghost text-warning">
-            <i class="fa-solid fa-rotate mr-1"></i> 刷新Token
+            <i class="fa-solid fa-rotate mr-1"></i> 更换订阅链接
           </button>
         </div>
         <div class="flex gap-2">
@@ -611,7 +619,7 @@ async function saveGroup() {
     return
   }
   if ((store.groupForm.config || []).some(item => item?.dialerProxy?.enabled && !String(item.dialerProxy.group || '').trim())) {
-    showToast('请选择链式代理目标', 'error')
+    showToast('请选择入口（第一跳）', 'error')
     return
   }
   store.groupNameError = false
@@ -641,14 +649,14 @@ async function saveGroup() {
 }
 
 async function refreshToken() {
-  if (!confirm('刷新Token后，旧的订阅链接将失效！确定？')) return
+  if (!confirm('更换订阅链接后，旧链接会失效，需要重新复制新链接。确定要更换吗？')) return
   try {
     const res = await authFetch(`${API}/groups/${store.groupForm.id}`, {
       method: 'PUT',
       body: { refresh_token: true }
     })
     if (!res.success || !res.token) {
-      showToast(res.error || '刷新失败', 'error')
+      showToast(res.error || '更换订阅链接失败', 'error')
       return
     }
     const group = store.groups.find(item => String(item.id) === String(store.groupForm.id))
@@ -661,8 +669,8 @@ async function refreshToken() {
       await navigator.clipboard.writeText(links.clash)
       copied = true
     } catch { copied = false }
-    showToast(copied ? 'Token已刷新，新的 Clash 链接已复制' : 'Token已刷新，请复制下方新链接')
-  } catch (e) { showToast(e.message || '刷新失败', 'error') }
+    showToast(copied ? '订阅链接已更换，新的 Clash 链接已复制' : '订阅链接已更换，请复制下方新链接')
+  } catch (e) { showToast(e.message || '更换订阅链接失败', 'error') }
 }
 
 async function saveAsTemplate() {

@@ -37,16 +37,17 @@
       </div>
 
       <!-- 提示 -->
-      <div v-if="!store.resourceModal.isEdit && store.resourceForm.type === 'node'" class="mb-3">
+      <div v-if="!store.resourceModal.isEdit" class="mb-3">
         <div class="alert alert-info py-2 text-xs">
           <i class="fa-solid fa-circle-info"></i>
-          支持批量导入：粘贴多条节点链接，每条自动识别为独立资源
+          <span v-if="store.resourceForm.type === 'node'">粘贴一条或多条节点分享链接。多条会拆成多个独立资源，方便以后单独勾选。</span>
+          <span v-else>把多条节点或整份订阅放进同一个资源里，之后在聚合组里一次勾选即可。</span>
         </div>
       </div>
 
       <!-- 内容 -->
       <div class="form-control mb-6">
-        <label class="label"><span class="label-text text-adaptive-muted">内容</span></label>
+        <label class="label"><span class="label-text text-adaptive-muted">{{ store.resourceForm.type === 'node' ? '节点分享链接' : '节点或订阅内容' }}</span></label>
         <textarea :value="store.resourceForm.url" rows="5"
           @input="onContentInput"
           :placeholder="store.resourceForm.type === 'node'
@@ -66,7 +67,7 @@
               <span class="text-adaptive-white truncate">{{ node.name || '未命名' }}</span>
             </div>
           </div>
-          <p class="text-xs text-adaptive-muted">下面同时给出 YAML 和 JSON。<span v-if="hiddenCount && !expandedPreview">默认展开前 {{ previewLimit }} 个，其余 {{ hiddenCount }} 个可点开。</span></p>
+          <p class="text-xs text-adaptive-muted">下面同时给出 Clash YAML 和客户端 JSON，方便核对。<span v-if="hiddenCount && !expandedPreview">默认展开前 {{ previewLimit }} 个，其余 {{ hiddenCount }} 个可点开，保存时仍会全部导入。</span></p>
           <button v-if="hiddenCount" class="btn btn-xs btn-ghost" @click="expandedPreview = !expandedPreview">
             {{ expandedPreview ? '收起详情' : '展开全部 YAML / JSON' }}
           </button>
@@ -181,7 +182,7 @@ async function refreshImportPreview(text, seq) {
     importTypes.value = {}
     importCount.value = 0
     hiddenCount.value = 0
-    importError.value = error.message || '识别失败'
+    importError.value = error.message || '没有识别出可用节点，请检查粘贴的内容'
   } finally {
     if (seq === previewSeq) previewing.value = false
   }
@@ -197,7 +198,7 @@ watch(() => store.resourceForm.type, () => {
 })
 
 async function saveResource() {
-  if (!store.resourceForm.url) { showToast('请输入内容', 'error'); return }
+  if (!store.resourceForm.url) { showToast('请粘贴节点链接或订阅内容', 'error'); return }
 
   // 节点组必须填名称
   if (store.resourceForm.type === 'group' && !store.resourceForm.name) {

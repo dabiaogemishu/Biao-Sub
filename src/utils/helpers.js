@@ -13,7 +13,7 @@ export function showToast(message, type = 'success') {
 export async function copyText(text) {
     try {
         await navigator.clipboard.writeText(text)
-        showToast('已复制到剪贴板')
+        showToast('已复制，可以直接粘贴')
     } catch (e) {
         showToast('复制失败', 'error')
     }
