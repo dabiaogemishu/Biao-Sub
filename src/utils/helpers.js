@@ -1,12 +1,42 @@
 import { useMainStore } from '../stores/main.js'
+import { nextResourceView } from './panel.js'
+
+let toastSeq = 0
+const highlightTimers = {}
 
 // Toast 通知
 export function showToast(message, type = 'success') {
     const store = useMainStore()
+    const ticket = ++toastSeq
     store.toast.show = true
     store.toast.message = message
     store.toast.type = type
-    setTimeout(() => { store.toast.show = false }, 2500)
+    const ms = String(message || '').length > 22 ? 4000 : 2500
+    setTimeout(() => { if (ticket === toastSeq) store.toast.show = false }, ms)
+}
+
+export function setHighlight(kind, ids, ms = 6000) {
+    const store = useMainStore()
+    const key = kind === 'groups' ? 'highlightedGroupIds' : 'highlightedResourceIds'
+    store[key] = (Array.isArray(ids) ? ids : [ids]).map(id => String(id)).filter(id => id && id !== 'undefined' && id !== 'null')
+    clearTimeout(highlightTimers[key])
+    highlightTimers[key] = setTimeout(() => { store[key] = [] }, ms)
+}
+
+export function revealResources(saved) {
+    const store = useMainStore()
+    const rows = (Array.isArray(saved) ? saved : [saved]).filter(row => row && row.id != null && row.id !== '')
+    const next = nextResourceView(store.resourceFilter, store.resourceQuery, rows)
+    store.resourceFilter = next.filter
+    store.resourceQuery = next.query
+    store.currentTab = 'resources'
+    if (rows.length) setHighlight('resources', rows.map(row => row.id))
+}
+
+export function revealGroups(ids) {
+    const store = useMainStore()
+    store.currentTab = 'groups'
+    setHighlight('groups', ids)
 }
 
 // 复制到剪贴板

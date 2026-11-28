@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { failureText, importPreviewState, mergeSavedResources, moveItem, patchNodeCount, subscriptionLinks } from '../src/utils/panel.js';
+import { failureText, importPreviewState, joinSubscriptionText, mergeSavedResources, moveItem, nextResourceView, patchNodeCount, resourceNodeCount, subscriptionLinks } from '../src/utils/panel.js';
 
 test('失败响应优先用服务端错误，否则带上 HTTP 状态', () => {
     assert.equal(failureText({ success: false, error: '拉取失败' }, 502), '拉取失败');
@@ -40,15 +40,38 @@ test('保存后立刻改资源上的节点数', () => {
     assert.equal(resources[0].info.nodeCount, 1);
 });
 
-test('importPreviewState 只展示前几个节点，并说明其余仍会导入', () => {
-    const many = importPreviewState([{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }], '没有识别出节点');
+test('importPreviewState 汇总全部节点名和协议，不再截取预览详情', () => {
+    const many = importPreviewState([
+        { name: 'a', type: 'ss' },
+        { name: 'b', type: 'ss' },
+        { name: 'c', protocol: 'vmess' },
+        { name: 'd', type: 'trojan' }
+    ], '没有识别出节点');
     assert.equal(many.count, 4);
-    assert.deepEqual(many.nodes.map(item => item.name), ['a', 'b', 'c']);
-    assert.equal(many.hidden, 1);
-    assert.equal(many.all.length, 4);
+    assert.deepEqual(many.all.map(item => item.name), ['a', 'b', 'c', 'd']);
+    assert.deepEqual(many.types, { ss: 2, vmess: 1, trojan: 1 });
     assert.equal(many.error, '');
     const empty = importPreviewState([], '内容为空');
     assert.equal(empty.count, 0);
-    assert.equal(empty.hidden, 0);
     assert.equal(empty.error, '内容为空');
+});
+
+test('追加文本接在原有节点内容后面，空段会被丢掉', () => {
+    assert.equal(joinSubscriptionText('ss://a#旧', '', 'ss://b#新'), 'ss://a#旧\nss://b#新');
+    assert.equal(joinSubscriptionText('  ', ''), '');
+});
+
+test('resourceNodeCount 读取资源上的节点数', () => {
+    assert.equal(resourceNodeCount({ info: { nodeCount: 3 } }), 3);
+    assert.equal(resourceNodeCount({ info: { nodeCount: '0' } }), 0);
+    assert.equal(resourceNodeCount({}), 0);
+});
+
+test('nextResourceView 在新资源会被筛选或搜索挡住时自动放开', () => {
+    const saved = [{ id: 8, name: '机场A', type: 'remote' }];
+    assert.deepEqual(nextResourceView('node', '', saved), { filter: 'remote', query: '' });
+    assert.deepEqual(nextResourceView('remote', '机场', saved), { filter: 'remote', query: '机场' });
+    assert.deepEqual(nextResourceView('all', '家里', saved), { filter: 'all', query: '' });
+    const mixed = [{ id: 1, name: '自建', type: 'node' }, { id: 2, name: '一组', type: 'group' }];
+    assert.deepEqual(nextResourceView('remote', '', mixed), { filter: 'all', query: '' });
 });

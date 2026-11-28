@@ -116,6 +116,10 @@ test('刷新 TOKEN 的响应带上新 token', async () => {
         body: JSON.stringify({ name: '链接', config: [], clash_config: { mode: 'generate', groups: [], rules: '' } })
     });
     const first = await created.json();
+    assert.equal(first.success, true);
+    assert.equal(first.id, 1);
+    assert.equal(first.name, '链接');
+    assert.equal(typeof first.token, 'string');
     const refreshed = await app.request('/groups/1', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

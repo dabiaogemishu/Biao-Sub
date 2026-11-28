@@ -45,6 +45,7 @@
     <div ref="resourceListRef" class="grid gap-3 sm:gap-4">
       <div v-for="r in filteredResources" :key="r.id"
         class="card glass-panel hover:shadow-xl transition-all duration-300 group border border-transparent hover:border-primary/30"
+        :class="{ 'just-saved': isHighlighted(r.id) }"
         :data-id="r.id">
         <div class="card-body p-3 sm:p-4">
           <div class="flex items-start gap-2 sm:gap-3">
@@ -63,8 +64,8 @@
               :class="r.type === 'node' ? 'bg-primary/20 text-primary' : r.type === 'remote' ? 'bg-success/20 text-success' : r.type === 'group' ? 'bg-warning/20 text-warning' : 'bg-secondary/20 text-secondary'">
               <i :class="r.type === 'node' ? 'fa-solid fa-server' : r.type === 'remote' ? 'fa-solid fa-cloud-arrow-down' : r.type === 'group' ? 'fa-solid fa-folder-tree' : 'fa-solid fa-plane'" class="text-sm sm:text-base"></i>
             </div>
-            <!-- 信息 -->
-            <div class="flex-1 min-w-0">
+            <!-- 信息：点击名称即可查看节点 -->
+            <div class="flex-1 min-w-0 cursor-pointer" @click="openPreview(r)">
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="font-bold text-adaptive-white text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{{ r.name }}</h3>
                 <span class="badge badge-sm"
@@ -77,6 +78,7 @@
                 <span v-if="getUADisplay(r)" class="badge badge-xs sm:badge-sm" :class="getUADisplay(r).class">
                   {{ getUADisplay(r).text }}
                 </span>
+                <span v-if="isHighlighted(r.id)" class="badge badge-primary badge-sm">刚保存</span>
               </div>
 
             </div>
@@ -85,10 +87,13 @@
               <button v-if="r.type === 'remote'" @click="$emit('refreshRemote', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="重新拉取这份机场订阅的最新节点">
                 <i class="fa-solid fa-rotate"></i>
               </button>
-              <button @click="$emit('preview', r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="查看、改名、排序或删除里面的节点">
+              <button v-if="r.type === 'group'" @click="openAppendGroup(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="向这个节点组追加节点链接">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+              <button @click="openPreview(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="查看、改名、排序、删除里面的节点，节点组还可以追加链接">
                 <i class="fa-solid fa-eye"></i>
               </button>
-              <button @click="openEditResource(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" data-tip="编辑这份资源">
+              <button @click="openEditResource(r)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm tooltip" :data-tip="r.type === 'group' ? '改名称，或追加节点链接' : r.type === 'remote' ? '改这份远程订阅的名称' : '编辑这份资源'">
                 <i class="fa-solid fa-pen"></i>
               </button>
               <button @click="deleteResource(r.id)" class="btn btn-circle btn-ghost btn-xs sm:btn-sm text-error tooltip" data-tip="删除这份资源">
@@ -105,14 +110,20 @@
       <p class="text-adaptive-muted mt-3">正在加载资源...</p>
     </div>
     <div v-else-if="store.resourcesFailed" class="text-center py-16">
-      <p class="text-error text-lg">资源加载失败，请刷新页面再试</p>
+      <p class="text-error text-lg mb-4">资源加载失败，请再试一次</p>
+      <button class="btn btn-primary btn-sm" @click="retryLoad">重新加载</button>
     </div>
     <div v-else-if="store.resources.length === 0" class="text-center py-16">
       <i class="fa-solid fa-box-open text-6xl text-adaptive-muted opacity-30 mb-4"></i>
-      <p class="text-adaptive-muted text-lg">还没有资源。先点「添加资源」粘贴节点，或点「远程订阅」导入机场链接。</p>
+      <p class="text-adaptive-muted text-lg mb-4">还没有资源。先点「添加资源」粘贴节点，或点「远程订阅」导入机场链接。</p>
+      <div class="flex flex-wrap gap-2 justify-center">
+        <button class="btn btn-primary btn-sm gap-1" @click="openAddResource"><i class="fa-solid fa-plus"></i> 添加资源</button>
+        <button class="btn btn-secondary btn-sm gap-1" @click="$emit('openRemote')"><i class="fa-solid fa-globe"></i> 远程订阅</button>
+      </div>
     </div>
     <div v-else-if="filteredResources.length === 0" class="text-center py-12">
-      <p class="text-adaptive-muted">没有符合筛选或搜索条件的资源</p>
+      <p class="text-adaptive-muted mb-3">没有符合筛选或搜索条件的资源</p>
+      <button class="btn btn-sm btn-ghost" @click="clearViewFilters">清除筛选和搜索</button>
     </div>
   </div>
 </template>
@@ -120,14 +131,14 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useMainStore } from '../../stores/main.js'
-import { authFetch, loadResources } from '../../api/index.js'
+import { authFetch, loadResources, openResourcePreview } from '../../api/index.js'
 import { showToast } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const resourceListRef = ref(null)
 
-const emit = defineEmits(['preview', 'openRemote', 'refreshRemote'])
+const emit = defineEmits(['openRemote', 'refreshRemote'])
 
 const filteredResources = computed(() => {
   const query = String(store.resourceQuery || '').trim().toLowerCase()
@@ -137,6 +148,20 @@ const filteredResources = computed(() => {
     return String(r.name || '').toLowerCase().includes(query)
   })
 })
+
+function isHighlighted(id) {
+  return store.highlightedResourceIds.includes(String(id))
+}
+
+function clearViewFilters() {
+  store.resourceFilter = 'all'
+  store.resourceQuery = ''
+}
+
+async function retryLoad() {
+  store.resourcesReady = false
+  await loadResources()
+}
 
 function getUADisplay(r) {
   if (r.type !== 'remote') return null
@@ -153,13 +178,30 @@ function getUADisplay(r) {
 }
 
 function openAddResource() {
-  store.resourceForm = { name: '', url: '', type: 'node' }
+  store.resourceForm = { name: '', url: '', type: 'node', source_url: '', appendUrl: '' }
   store.resourceModal.isEdit = false
   store.resourceModal.show = true
 }
 
+function openPreview(r) {
+  store.previewModal.appendOpen = false
+  openResourcePreview(r)
+}
+
+function openAppendGroup(r) {
+  store.previewModal.appendOpen = true
+  openResourcePreview(r, { append: true })
+}
+
 function openEditResource(r) {
-  store.resourceForm = { id: r.id, name: r.name, url: r.url, type: r.type }
+  store.resourceForm = {
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    type: r.type,
+    source_url: r.source_url || '',
+    appendUrl: ''
+  }
   store.resourceModal.isEdit = true
   store.resourceModal.show = true
 }
@@ -176,7 +218,7 @@ function toggleSelect(id) {
 }
 
 function selectAll() {
-  store.selectedResources = store.resources.map(r => r.id)
+  store.selectedResources = filteredResources.value.map(r => r.id)
 }
 
 async function deleteResource(id) {
@@ -225,6 +267,15 @@ async function initSortable() {
   } catch (e) { console.error('Sortable init failed:', e) }
 }
 
+async function scrollToHighlighted() {
+  const id = store.highlightedResourceIds[0]
+  if (!id || !resourceListRef.value) return
+  await nextTick()
+  const el = resourceListRef.value.querySelector(`[data-id="${id}"]`)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 onMounted(() => { nextTick(initSortable) })
 watch(() => store.resources.length, () => { nextTick(initSortable) })
+watch(() => store.highlightedResourceIds.slice(), () => { scrollToHighlighted() })
 </script>

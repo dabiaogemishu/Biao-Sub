@@ -3,9 +3,10 @@
     <div class="modal-box glass-panel max-w-3xl w-11/12 p-0 overflow-hidden flex flex-col h-[85vh]">
       <!-- 头部 -->
       <div class="p-4 sm:p-6 pb-0 flex items-center justify-between">
-        <h3 class="font-bold text-xl text-adaptive-white flex items-center gap-2">
+        <h3 class="font-bold text-xl text-adaptive-white flex items-center gap-2 min-w-0">
           <i class="fa-solid fa-eye text-primary"></i>
-          查看节点 <span class="badge badge-sm badge-ghost ml-2">{{ store.previewModal.nodes.length }}个</span>
+          <span class="truncate">{{ previewTitle }}</span>
+          <span class="badge badge-sm badge-ghost ml-2 flex-shrink-0">{{ store.previewModal.loading ? '加载中' : store.previewModal.nodes.length + '个' }}</span>
         </h3>
         <div class="flex gap-2 flex-wrap justify-end">
           <button @click="toggleSortMode" class="btn btn-xs gap-1"
@@ -20,11 +21,49 @@
             :class="deleteMode ? 'btn-error' : 'btn-ghost'">
             <i class="fa-solid fa-trash"></i> {{ deleteMode ? '退出删除' : '删除' }}
           </button>
-          <button class="btn btn-circle btn-ghost btn-sm" @click="closePreview">
+          <button class="btn btn-circle btn-ghost btn-sm" @click="requestClose">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
       </div>
+
+      <!-- 向节点组追加链接 -->
+      <div v-if="canAppend" class="px-4 sm:px-6 pt-3 space-y-2">
+        <button type="button" class="btn btn-xs gap-1"
+          :class="appendOpen ? 'btn-warning' : 'btn-ghost'"
+          @click="toggleAppend">
+          <i class="fa-solid fa-plus"></i> {{ appendOpen ? '收起追加' : '追加节点链接' }}
+        </button>
+        <div v-if="appendOpen" class="rounded-xl border border-panel-border p-3 space-y-2">
+          <p class="text-xs text-adaptive-muted">把要新加的节点链接粘贴到这里。保存后会加到这个组里，原来的节点还在。</p>
+          <textarea v-model="appendText" rows="4"
+            @input="scheduleAppendPreview"
+            placeholder="每行一个分享链接，也可以粘贴整段订阅"
+            class="textarea textarea-bordered bg-adaptive-input w-full font-mono text-xs"></textarea>
+          <p v-if="appendPreviewing" class="text-xs text-adaptive-muted">正在识别…</p>
+          <p v-if="appendError" class="text-xs text-error">{{ appendError }}</p>
+          <div v-if="appendCount" class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-xs text-adaptive-muted">将追加 {{ appendCount }} 个节点，组内现有 {{ store.previewModal.nodes.length }} 个会保留。</p>
+              <span v-for="(count, type) in appendTypes" :key="type" class="badge badge-sm badge-outline">{{ type }} {{ count }}</span>
+            </div>
+            <div class="rounded-lg border border-panel-border p-2 max-h-28 overflow-y-auto custom-scrollbar">
+              <div v-for="(node, i) in appendCatalog" :key="'append-'+i" class="flex items-center gap-2 py-0.5 text-xs">
+                <span class="badge badge-ghost badge-xs uppercase">{{ node.type || node.protocol || 'node' }}</span>
+                <span class="text-adaptive-white truncate">{{ node.name || '未命名' }}</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-warning btn-xs" :disabled="!appendCount || saving" @click="appendAndSave">
+            <span v-if="saving" class="loading loading-spinner loading-xs"></span>
+            追加并保存
+          </button>
+        </div>
+      </div>
+
+      <p v-if="isRemoteResource" class="px-4 sm:px-6 pt-3 text-xs text-adaptive-muted leading-relaxed">
+        这是远程订阅当前保存的节点。这里改名、排序或删除后，下次点「刷新」重新拉取时会被覆盖。
+      </p>
 
       <!-- 批量删除操作栏 -->
       <div v-if="deleteMode" class="px-4 sm:px-6 pt-3 flex items-center gap-2">
@@ -38,7 +77,15 @@
       </div>
 
       <!-- 节点列表 -->
-      <div ref="previewListRef" class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-2">
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+        <div v-if="store.previewModal.loading" class="text-center py-16">
+          <span class="loading loading-spinner loading-md text-primary"></span>
+          <p class="text-adaptive-muted mt-3">正在读取节点…</p>
+        </div>
+        <div v-else-if="!store.previewModal.nodes.length" class="text-center py-16 text-adaptive-muted">
+          没有识别到节点，请检查这份资源的内容
+        </div>
+        <div v-else ref="previewListRef" class="space-y-2">
         <div v-for="(node, i) in store.previewModal.nodes" :key="i"
           class="p-3 rounded-lg bg-adaptive-input border border-panel-border hover:border-primary/30 transition-all"
           :data-index="i">
@@ -91,6 +138,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       <!-- 底部 -->
@@ -99,7 +147,7 @@
           <i class="fa-solid fa-copy"></i> 复制全部节点链接
         </button>
         <div class="flex gap-2">
-          <button class="btn btn-ghost btn-sm" @click="closePreview">关闭</button>
+          <button class="btn btn-ghost btn-sm" @click="requestClose">关闭</button>
           <button v-if="hasChanges"
             class="btn btn-primary btn-sm" @click="saveChanges" :disabled="saving">
             <span v-if="saving" class="loading loading-spinner loading-xs"></span>
@@ -108,16 +156,16 @@
         </div>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="closePreview"></form>
+    <form method="dialog" class="modal-backdrop" @click="requestClose"></form>
   </dialog>
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
-import { showToast, copyText } from '../../utils/helpers.js'
-import { patchNodeCount } from '../../utils/panel.js'
+import { revealResources, showToast, copyText } from '../../utils/helpers.js'
+import { importPreviewState, mergeSavedResources, patchNodeCount, typeLabel } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -127,11 +175,30 @@ const selectedNodes = ref([])
 const saving = ref(false)
 const changed = ref(false)
 const openFormat = ref(-1)
+const appendOpen = ref(false)
+const appendText = ref('')
+const appendCatalog = ref([])
+const appendTypes = ref({})
+const appendCount = ref(0)
+const appendError = ref('')
+const appendPreviewing = ref(false)
+let appendTimer = null
+let appendSeq = 0
 let sortableInstance = null
+
+const previewTitle = computed(() => {
+  const name = store.previewModal.resourceItem?.name
+  return name ? `查看「${name}」` : '查看节点'
+})
+
+const canAppend = computed(() => store.previewModal.resourceItem?.type === 'group')
+const isRemoteResource = computed(() => store.previewModal.resourceItem?.type === 'remote')
 
 const hasChanges = computed(() => {
   return changed.value || store.previewModal.editMode || store.previewModal.sortMode
 })
+
+const unsavedWork = computed(() => hasChanges.value || (appendOpen.value && String(appendText.value || '').trim().length > 0))
 
 function getProtocol(node) {
   if (node.protocol) return node.protocol
@@ -241,20 +308,98 @@ function copyAllNodes() {
   copyText(links)
 }
 
+function resetAppend(keepOpen = false) {
+  clearTimeout(appendTimer)
+  appendSeq += 1
+  if (!keepOpen) appendOpen.value = false
+  appendText.value = ''
+  appendCatalog.value = []
+  appendTypes.value = {}
+  appendCount.value = 0
+  appendError.value = ''
+  appendPreviewing.value = false
+}
+
+function toggleAppend() {
+  appendOpen.value = !appendOpen.value
+  store.previewModal.appendOpen = appendOpen.value
+  if (!appendOpen.value) resetAppend(false)
+}
+
+function scheduleAppendPreview() {
+  clearTimeout(appendTimer)
+  const seq = ++appendSeq
+  const text = String(appendText.value || '').trim()
+  if (!text) {
+    appendCatalog.value = []
+    appendTypes.value = {}
+    appendCount.value = 0
+    appendError.value = ''
+    appendPreviewing.value = false
+    return
+  }
+  appendPreviewing.value = true
+  appendError.value = ''
+  appendTimer = setTimeout(() => refreshAppendPreview(text, seq), 250)
+}
+
+async function refreshAppendPreview(text, seq) {
+  try {
+    const res = await authFetch(`${API}/check`, { method: 'POST', body: { url: text } })
+    if (seq !== appendSeq) return
+    const preview = importPreviewState(res.data?.nodes || [], res.error || '没有识别出节点')
+    appendCount.value = preview.count
+    appendCatalog.value = preview.all
+    appendTypes.value = Object.fromEntries(Object.entries(preview.types || {}).map(([key, count]) => [typeLabel(key) || key, count]))
+    appendError.value = preview.error
+  } catch (error) {
+    if (seq !== appendSeq) return
+    appendCatalog.value = []
+    appendTypes.value = {}
+    appendCount.value = 0
+    appendError.value = error.message || '没有识别出可用节点，请检查粘贴的内容'
+  } finally {
+    if (seq === appendSeq) appendPreviewing.value = false
+  }
+}
+
+async function appendAndSave() {
+  if (!appendCount.value || !appendCatalog.value.length) return
+  store.previewModal.nodes = store.previewModal.nodes.concat(appendCatalog.value)
+  changed.value = true
+  await saveChanges({ keepOpen: true, successText: '已追加并保存，原有节点仍在' })
+}
+
+watch(() => store.previewModal.show, (open) => {
+  if (open) {
+    appendOpen.value = !!store.previewModal.appendOpen
+    if (!appendOpen.value) resetAppend(false)
+  } else {
+    resetAppend(false)
+  }
+})
+
+function requestClose() {
+  if (unsavedWork.value && !confirm('还有未保存的修改，关闭后会丢失。确定关闭吗？')) return
+  closePreview()
+}
+
 // === 关闭 ===
 function closePreview() {
   store.previewModal.show = false
   store.previewModal.sortMode = false
   store.previewModal.editMode = false
+  store.previewModal.appendOpen = false
   openFormat.value = -1
   deleteMode.value = false
   selectedNodes.value = []
   changed.value = false
+  resetAppend(false)
   if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
 }
 
 // === 保存 ===
-async function saveChanges() {
+async function saveChanges(options = {}) {
   if (!store.previewModal.resourceId) return
   saving.value = true
 
@@ -263,10 +408,14 @@ async function saveChanges() {
     let orderedNodes = store.previewModal.nodes
     if (store.previewModal.sortMode && previewListRef.value) {
       const domOrder = Array.from(previewListRef.value.children).map(el => parseInt(el.dataset.index))
-      orderedNodes = domOrder.map(idx => store.previewModal.nodes[idx])
+      orderedNodes = domOrder.map(idx => store.previewModal.nodes[idx]).filter(Boolean)
     }
 
     const kept = orderedNodes.filter(node => node.link)
+    if (isRemoteResource.value && !confirm('保存后会改这份远程订阅当前保存的节点。以后点「刷新」重新拉取时，这些改动会被覆盖。确定保存吗？')) {
+      saving.value = false
+      return
+    }
     const res = await authFetch(`${API}/subs/${store.previewModal.resourceId}`, {
       method: 'PUT',
       body: {
@@ -280,10 +429,31 @@ async function saveChanges() {
       return
     }
 
-    patchNodeCount(store.resources, store.previewModal.resourceId, kept.length)
-    showToast('修改已保存')
-    closePreview()
-    await loadResources()
+    patchNodeCount(store.resources, store.previewModal.resourceId, res.count ?? kept.length)
+    if (Array.isArray(res.resources) && res.resources.length) {
+      store.resources = mergeSavedResources(store.resources, res.resources)
+      const updated = store.resources.find(item => String(item.id) === String(store.previewModal.resourceId))
+      if (updated) store.previewModal.resourceItem = updated
+    }
+    showToast(options.successText || '修改已保存')
+    if (options.keepOpen) {
+      store.previewModal.nodes = kept
+      store.previewModal.originalNodes = JSON.parse(JSON.stringify(kept))
+      store.previewModal.editMode = false
+      store.previewModal.sortMode = false
+      changed.value = false
+      resetAppend(false)
+      if (sortableInstance) { sortableInstance.destroy(); sortableInstance = null }
+      await loadResources()
+      if (Array.isArray(res.resources) && res.resources.length) {
+        store.resources = mergeSavedResources(store.resources, res.resources)
+      }
+    } else {
+      const item = store.previewModal.resourceItem
+      closePreview()
+      await loadResources()
+      if (item) revealResources([item])
+    }
   } catch (e) { showToast('保存失败', 'error') }
   saving.value = false
 }

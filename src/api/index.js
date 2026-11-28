@@ -1,6 +1,7 @@
 import { useMainStore } from '../stores/main.js'
 import { API } from './config.js'
 import { failureText } from '../utils/panel.js'
+import { showToast } from '../utils/helpers.js'
 
 // 封装授权请求
 const SESSION_KEY = 'biaosub_session'
@@ -86,4 +87,34 @@ export async function checkResource(url) {
         body: { url }
     })
     return data
+}
+
+export async function openResourcePreview(resource, options = {}) {
+    const store = useMainStore()
+    if (!resource) return
+    store.previewModal.resourceId = resource.id
+    store.previewModal.resourceItem = resource
+    store.previewModal.sortMode = false
+    store.previewModal.editMode = false
+    store.previewModal.appendOpen = !!options.append
+    store.previewModal.nodes = []
+    store.previewModal.originalNodes = []
+    store.previewModal.loading = true
+    store.previewModal.show = true
+    try {
+        const res = await checkResource(resource.url)
+        if (res.success) {
+            store.previewModal.nodes = res.data.nodes || []
+            store.previewModal.originalNodes = JSON.parse(JSON.stringify(res.data.nodes || []))
+            if (res.data.errors?.length) showToast(res.data.errors[0].message, 'error')
+        } else {
+            store.previewModal.nodes = []
+            showToast(res.error || '没有识别到节点，请检查这份资源的内容', 'error')
+        }
+    } catch (e) {
+        store.previewModal.nodes = []
+        showToast(e.message || '没有识别到节点，请检查这份资源的内容', 'error')
+    } finally {
+        store.previewModal.loading = false
+    }
 }

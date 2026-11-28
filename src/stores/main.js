@@ -35,6 +35,8 @@ export const useMainStore = defineStore('main', () => {
     const currentTab = ref('resources')
     const resourceFilter = ref('all')
     const resourceQuery = ref('')
+    const highlightedResourceIds = ref([])
+    const highlightedGroupIds = ref([])
     const submitting = ref(false)
     const toast = reactive({ show: false, message: '', type: 'success' })
 
@@ -51,6 +53,8 @@ export const useMainStore = defineStore('main', () => {
         nodes: [],
         sortMode: false,
         editMode: false,
+        appendOpen: false,
+        loading: false,
         resourceId: null,
         resourceItem: null,
         originalNodes: []
@@ -111,7 +115,7 @@ export const useMainStore = defineStore('main', () => {
     return {
         resources, groups, userTemplates, stats,
         isLoggedIn, booting, resourcesReady, resourcesFailed, loginPassword, loginLoading,
-        theme, currentTab, resourceFilter, resourceQuery, submitting, toast,
+        theme, currentTab, resourceFilter, resourceQuery, highlightedResourceIds, highlightedGroupIds, submitting, toast,
         batchMode, selectedResources,
         resourceModal, groupModal, templateModal, previewModal, settingsModal,
         resourceForm, groupForm, groupNameError,

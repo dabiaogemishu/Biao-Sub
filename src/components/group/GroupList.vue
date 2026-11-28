@@ -12,6 +12,7 @@
     <div ref="groupListRef" class="grid gap-3 sm:gap-4">
       <div v-for="g in store.groups" :key="g.id"
         class="card glass-panel hover:shadow-xl transition-all duration-300 group border border-transparent hover:border-accent/30"
+        :class="{ 'just-saved': isHighlighted(g.id) }"
         :data-id="g.id">
         <div class="card-body p-3 sm:p-5">
           <div class="flex items-start gap-2 sm:gap-3">
@@ -50,6 +51,7 @@
                   <i class="fa-solid fa-copy"></i> 节点列表
                 </button>
               </div>
+              <p v-if="isHighlighted(g.id)" class="text-xs text-accent mt-2 leading-relaxed">刚创建，把上面的订阅链接复制到客户端即可。</p>
               <p v-if="hasChain(g)" class="text-xs text-warning mt-2 leading-relaxed">这个聚合组启用了链式代理。请复制「Clash」订阅使用；Base64、sing-box 和节点列表仍是普通节点，不含链式。</p>
             </div>
             <!-- 操作按钮 -->
@@ -69,7 +71,8 @@
     <!-- 空状态 -->
     <div v-if="store.groups.length === 0" class="text-center py-16">
       <i class="fa-solid fa-object-ungroup text-6xl text-adaptive-muted opacity-30 mb-4"></i>
-      <p class="text-adaptive-muted text-lg">还没有聚合组。把资源池里的节点组合起来，就能得到一条订阅链接。</p>
+      <p class="text-adaptive-muted text-lg mb-4">还没有聚合组。把资源池里的节点组合起来，就能得到一条订阅链接。</p>
+      <button class="btn btn-accent btn-sm gap-1" @click="openAddGroup"><i class="fa-solid fa-plus"></i> 新建聚合组</button>
     </div>
   </div>
 </template>
@@ -85,6 +88,10 @@ import { defaultHeader, defaultRules } from '../../api/config.js'
 
 const store = useMainStore()
 const groupListRef = ref(null)
+
+function isHighlighted(id) {
+  return store.highlightedGroupIds.includes(String(id))
+}
 
 function hasChain(group) {
   return (group.config || []).some(item => item?.dialerProxy?.enabled)
@@ -183,6 +190,15 @@ async function initSortable() {
   } catch (e) { console.error('Sortable init failed:', e) }
 }
 
+async function scrollToHighlighted() {
+  const id = store.highlightedGroupIds[0]
+  if (!id || !groupListRef.value) return
+  await nextTick()
+  const el = groupListRef.value.querySelector(`[data-id="${id}"]`)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 onMounted(() => { nextTick(initSortable) })
 watch(() => store.groups.length, () => { nextTick(initSortable) })
+watch(() => store.highlightedGroupIds.slice(), () => { scrollToHighlighted() })
 </script>

@@ -33,7 +33,12 @@ export function registerGroupRoutes(app) {
         const row = await c.env.DB.prepare('SELECT * FROM groups WHERE token = ?').bind(token).first();
         const built = await buildGroupOutput(c.env.DB, row);
         await c.env.DB.prepare('UPDATE groups SET cached_yaml = ? WHERE token = ?').bind(built.clash || '', token).run();
-        return c.json({ success: true, token });
+        return c.json({
+            success: true,
+            token,
+            id: Number(row?.id || 0) || undefined,
+            name: row?.name || body.name || ''
+        });
     });
 
     app.put('/groups/:id', async (c) => {

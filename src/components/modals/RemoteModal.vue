@@ -58,7 +58,7 @@
 <script setup>
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadResources } from '../../api/index.js'
-import { showToast } from '../../utils/helpers.js'
+import { revealResources, showToast } from '../../utils/helpers.js'
 import { failureText, mergeSavedResources } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
@@ -87,7 +87,7 @@ async function submitRemote() {
         }
       })
       if (res && res.success) {
-        showToast(`导入成功：${res.data.nodeCount}个节点`)
+        showToast(`导入成功：${res.data.nodeCount}个节点，已在资源池中标出`)
         store.remoteModal.show = false
         store.remoteModal.url = ''
         store.remoteModal.name = ''
@@ -99,6 +99,7 @@ async function submitRemote() {
         if (Array.isArray(res.resources) && res.resources.length) {
           store.resources = mergeSavedResources(store.resources, res.resources)
         }
+        revealResources(res.resources || (res.data ? [res.data] : []))
       } else {
         showRemoteError(failureText(res, res && res.status, '导入失败'))
       }

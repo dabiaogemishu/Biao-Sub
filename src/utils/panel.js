@@ -1,6 +1,7 @@
 import { defaultProcess, normalizeProcess, processIsActive, processLabels, PROTOCOL_OPTIONS, typeLabel } from '../../functions/_lib/output/process.js'
+import { joinSubscriptionText } from '../../functions/_lib/subscribe/store.js'
 
-export { defaultProcess, normalizeProcess, processIsActive, processLabels, PROTOCOL_OPTIONS, typeLabel }
+export { defaultProcess, normalizeProcess, processIsActive, processLabels, PROTOCOL_OPTIONS, typeLabel, joinSubscriptionText }
 
 export function failureText(data, status, fallback = '请求失败') {
     const message = data && typeof data.error === 'string' ? data.error.trim() : ''
@@ -65,10 +66,8 @@ export function patchNodeCount(resources, id, count) {
     return true
 }
 
-export function importPreviewState(nodes, error, limit = 3) {
+export function importPreviewState(nodes, error) {
     const list = Array.isArray(nodes) ? nodes : []
-    const cap = Number(limit)
-    const size = Number.isInteger(cap) && cap > 0 ? cap : 3
     const types = {}
     for (const node of list) {
         const key = node?.type || node?.protocol || 'other'
@@ -76,16 +75,40 @@ export function importPreviewState(nodes, error, limit = 3) {
     }
     return {
         count: list.length,
-        nodes: list.slice(0, size),
         all: list,
         types,
-        hidden: Math.max(0, list.length - size),
         error: list.length ? '' : (error || '没有识别出节点')
     }
+}
+
+export function resourceNodeCount(resource) {
+    const info = resource?.info
+    const raw = info && typeof info === 'object' ? info.nodeCount : undefined
+    const count = Number(raw)
+    return Number.isFinite(count) && count > 0 ? count : 0
 }
 
 export function withProcess(clashConfig = {}) {
     const next = clashConfig && typeof clashConfig === 'object' ? { ...clashConfig } : {}
     next.process = normalizeProcess(next.process)
     return next
+}
+
+export function nextResourceView(filter, query, saved) {
+    const rows = (Array.isArray(saved) ? saved : []).filter(row => row && (row.id != null || row.type || row.name))
+    const currentFilter = filter || 'all'
+    const currentQuery = String(query || '')
+    const needle = currentQuery.trim().toLowerCase()
+    let nextFilter = currentFilter
+    if (rows.length) {
+        const types = [...new Set(rows.map(row => row.type).filter(Boolean))]
+        if (currentFilter !== 'all' && rows.some(row => row.type && row.type !== currentFilter)) {
+            nextFilter = types.length === 1 ? types[0] : 'all'
+        }
+    }
+    let nextQuery = currentQuery
+    if (needle && rows.some(row => !String(row.name || '').toLowerCase().includes(needle))) {
+        nextQuery = ''
+    }
+    return { filter: nextFilter, query: nextQuery }
 }

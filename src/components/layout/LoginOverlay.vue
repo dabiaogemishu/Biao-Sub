@@ -53,9 +53,11 @@ async function handleLogin() {
       store.isLoggedIn = true
       showToast('登录成功')
     } else {
+      passwordError.value = data.error || '密码错误'
       showToast(data.error || '密码错误', 'error')
     }
   } catch (e) {
+    passwordError.value = e.message || '登录失败'
     showToast('登录失败', 'error')
   }
   store.loginLoading = false

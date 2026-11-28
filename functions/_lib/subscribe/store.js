@@ -2,6 +2,10 @@ import { summarizeErrors } from '../core/model.js';
 import { toUri } from '../uri/index.js';
 import { parseSubscription } from './parse.js';
 
+export function joinSubscriptionText(...parts) {
+    return parts.map(part => String(part || '').trim()).filter(Boolean).join('\n');
+}
+
 export function canonicalize(text, names) {
     const parsed = parseSubscription(text);
     if (!parsed.nodes.length) {

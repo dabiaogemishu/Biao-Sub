@@ -1,6 +1,6 @@
 import { parseSubscription } from '../subscribe/parse.js';
 import { toPublicNode } from '../uri/index.js';
-import { canonicalize } from '../subscribe/store.js';
+import { canonicalize, joinSubscriptionText } from '../subscribe/store.js';
 import { summarizeErrors } from '../core/model.js';
 import { rebuildCachesFor } from '../output/render.js';
 import { detachResources } from '../groups/persist.js';
@@ -86,18 +86,24 @@ export function registerSubRoutes(app) {
     app.put('/subs/:id', async (c) => {
         const body = await c.req.json();
         const id = c.req.param('id');
+        const existing = await c.env.DB.prepare('SELECT * FROM subscriptions WHERE id = ?').bind(id).first();
+        if (!existing) return c.json({ success: false, error: '资源不存在' }, 404);
         const sets = ['updated_at = CURRENT_TIMESTAMP'];
         const args = [];
+        let stored = null;
         if (body.url !== undefined) {
-            const stored = canonicalize(body.url, body.names);
+            const source = body.append ? joinSubscriptionText(existing.url, body.url) : body.url;
+            stored = canonicalize(source, body.append ? undefined : body.names);
             if (!stored.ok) return c.json({ success: false, error: stored.error, warnings: stored.warnings || [] }, 400);
-            if (body.name && stored.parsed.nodes.length === 1) {
+            if (!body.append && body.name && stored.parsed.nodes.length === 1) {
                 const renamed = canonicalize(stored.url, [body.name]);
                 if (renamed.ok) stored.url = renamed.url;
             }
             sets.push('url = ?');
             args.push(stored.url);
-            const info = body.info && typeof body.info === 'object' ? body.info : {};
+            let info = {};
+            try { info = JSON.parse(existing.info || '{}'); } catch { info = {}; }
+            if (body.info && typeof body.info === 'object') info = { ...info, ...body.info };
             sets.push('info = ?');
             args.push(infoWithCount(info, stored.parsed.nodes.length, stored.parsed.format));
         } else if (body.info) {
@@ -110,7 +116,15 @@ export function registerSubRoutes(app) {
         args.push(id);
         await c.env.DB.prepare(`UPDATE subscriptions SET ${sets.join(', ')} WHERE id = ?`).bind(...args).run();
         if (body.url !== undefined) await rebuildCachesFor(c.env.DB, [id]);
-        return c.json({ success: true });
+        const row = await c.env.DB.prepare('SELECT * FROM subscriptions WHERE id = ?').bind(id).first();
+        const resource = row ? createdResource(row.id, row.name, row.url, row.type, row.info, row.sort_order, { params: row.params, source_url: row.source_url, snapshot: row.snapshot, status: row.status }) : null;
+        return c.json({
+            success: true,
+            count: stored ? stored.parsed.nodes.length : (resource?.info?.nodeCount),
+            url: stored ? stored.url : row?.url,
+            warnings: stored ? stored.warnings : [],
+            resources: resource ? [resource] : []
+        });
     });
 
     app.delete('/subs/:id', async (c) => {

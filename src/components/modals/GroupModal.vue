@@ -49,14 +49,25 @@
             <div class="flex items-center justify-between mb-3">
               <h4 class="font-bold text-sm text-adaptive-white">选择资源</h4>
               <div class="flex items-center gap-2">
-                <button class="btn btn-xs btn-ghost" @click="selectAllResources">
-                  {{ store.groupForm.config.length === store.resources.length ? '取消全选' : '全选' }}
+                <button class="btn btn-xs btn-ghost" @click="selectAllResources" :disabled="!visibleResources.length">
+                  {{ allVisibleSelected ? '取消全选' : '全选' }}
                 </button>
                 <span class="badge badge-sm badge-ghost">{{ store.groupForm.config.length }}个已选</span>
               </div>
             </div>
-            <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-              <div v-for="r in store.resources" :key="r.id"
+            <label v-if="store.resources.length" class="input input-bordered input-sm bg-adaptive-input flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-magnifying-glass text-adaptive-muted text-xs"></i>
+              <input v-model="pickQuery" type="search" class="grow bg-transparent outline-none" placeholder="搜索要勾选的资源名称" />
+            </label>
+            <div v-if="!store.resources.length" class="rounded-lg border border-panel-border p-4 text-sm text-adaptive-muted">
+              <p>资源池还是空的。请先添加节点或远程订阅，再回来勾选。</p>
+              <button type="button" class="btn btn-xs btn-primary mt-3" @click="goAddResources">去资源池添加</button>
+            </div>
+            <div v-else-if="!visibleResources.length" class="rounded-lg border border-panel-border p-3 text-sm text-adaptive-muted">
+              没有名称匹配的资源。<button type="button" class="btn btn-xs btn-ghost" @click="pickQuery = ''">清除搜索</button>
+            </div>
+            <div v-else class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+              <div v-for="r in visibleResources" :key="r.id"
                 class="flex items-center gap-3 p-2 rounded-lg bg-adaptive-input hover:bg-primary/10 transition-all cursor-pointer"
                 @click="toggleResource(r)">
                 <input type="checkbox" class="checkbox checkbox-primary checkbox-sm"
@@ -341,6 +352,8 @@
         <div class="flex flex-wrap gap-2">
           <button type="button" class="btn btn-xs btn-outline btn-primary" @click="copyText(refreshedLinks.clash)">复制 Clash</button>
           <button type="button" class="btn btn-xs btn-outline btn-secondary" @click="copyText(refreshedLinks.base64)">复制 Base64</button>
+          <button type="button" class="btn btn-xs btn-outline btn-accent" @click="copyText(refreshedLinks.singbox)">复制 sing-box</button>
+          <button type="button" class="btn btn-xs btn-outline" @click="copyText(refreshedLinks.list)">复制节点列表</button>
         </div>
         <p class="text-xs break-all mt-2 text-adaptive-white">{{ refreshedLinks.clash }}</p>
       </div>
@@ -373,20 +386,40 @@ import { ref, watch, nextTick, computed } from 'vue'
 import { parse as parseYaml } from 'yaml'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups, loadTemplates } from '../../api/index.js'
-import { showToast, copyText } from '../../utils/helpers.js'
+import { revealGroups, showToast, copyText } from '../../utils/helpers.js'
 import { subscriptionLinks, PROTOCOL_OPTIONS, withProcess } from '../../utils/panel.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
 const uploadedFileName = ref('')
 const refreshedLinks = ref(null)
+const pickQuery = ref('')
 
 const protocolOptions = PROTOCOL_OPTIONS
 
 watch(() => [store.groupModal.show, store.groupForm.id], () => {
-  if (!store.groupModal.show) refreshedLinks.value = null
-  else ensureProcess()
+  if (!store.groupModal.show) {
+    refreshedLinks.value = null
+    pickQuery.value = ''
+  } else {
+    ensureProcess()
+  }
 })
+
+const visibleResources = computed(() => {
+  const query = String(pickQuery.value || '').trim().toLowerCase()
+  if (!query) return store.resources
+  return store.resources.filter(item => String(item.name || '').toLowerCase().includes(query))
+})
+
+const allVisibleSelected = computed(() => {
+  return visibleResources.value.length > 0 && visibleResources.value.every(item => store.groupForm.config.some(c => c.subId === item.id))
+})
+
+function goAddResources() {
+  store.groupModal.show = false
+  store.currentTab = 'resources'
+}
 
 function ensureProcess() {
   store.groupForm.clash_config = withProcess(store.groupForm.clash_config || {})
@@ -471,10 +504,15 @@ const emit = defineEmits(['openNodeSelector', 'openClashNodeSelector'])
 
 // === 全选/取消全选 ===
 function selectAllResources() {
-  if (store.groupForm.config.length === store.resources.length) {
-    store.groupForm.config = []
+  if (allVisibleSelected.value) {
+    const ids = new Set(visibleResources.value.map(item => item.id))
+    store.groupForm.config = store.groupForm.config.filter(item => !ids.has(item.subId))
   } else {
-    store.groupForm.config = store.resources.map(r => ({ subId: r.id, name: r.name }))
+    for (const resource of visibleResources.value) {
+      if (!store.groupForm.config.some(item => item.subId === resource.id)) {
+        store.groupForm.config.push({ subId: resource.id, name: resource.name })
+      }
+    }
   }
 }
 
@@ -622,6 +660,9 @@ async function saveGroup() {
     showToast('请选择入口（第一跳）', 'error')
     return
   }
+  if (!(store.groupForm.config || []).length) {
+    if (!confirm('还没有勾选资源，保存后这条订阅里会是空的。确定继续吗？')) return
+  }
   store.groupNameError = false
   store.submitting = true
 
@@ -631,6 +672,7 @@ async function saveGroup() {
       config: store.groupForm.config,
       clash_config: withProcess(store.groupForm.clash_config)
     }
+    const creating = !store.groupModal.isEdit
 
     const res = store.groupModal.isEdit
       ? await authFetch(`${API}/groups/${store.groupForm.id}`, { method: 'PUT', body })
@@ -641,9 +683,13 @@ async function saveGroup() {
       return
     }
 
-    showToast(store.groupModal.isEdit ? '修改成功' : '创建成功')
+    showToast(creating ? '聚合组已创建。把订阅链接复制到客户端即可。' : '修改成功')
     store.groupModal.show = false
     await loadGroups()
+    if (creating) {
+      const createdId = res.id || store.groups.find(item => item.token === res.token)?.id
+      if (createdId != null) revealGroups([createdId])
+    }
   } catch (e) { showToast('操作失败', 'error') }
   store.submitting = false
 }
