@@ -20,6 +20,6 @@ export function canonicalize(text, names) {
         const links = parsed.nodes.map(node => toUri(node));
         return { ok: true, parsed, links, url: links.join('\n'), warnings: parsed.errors };
     } catch (error) {
-        return { ok: false, error: `节点无法导出：${error.message}`, parsed, warnings: parsed.errors };
+        return { ok: false, error: '节点无法导出', parsed, warnings: parsed.errors };
     }
 }

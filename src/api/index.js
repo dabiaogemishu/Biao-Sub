@@ -2,6 +2,7 @@ import { useMainStore } from '../stores/main.js'
 import { API } from './config.js'
 import { failureText } from '../utils/panel.js'
 import { showToast } from '../utils/helpers.js'
+import { clearPanelState } from '../utils/session.js'
 
 // 封装授权请求
 const SESSION_KEY = 'biaosub_session'
@@ -33,6 +34,7 @@ export async function authFetch(url, options = {}) {
     if (res.status === 401) {
         store.isLoggedIn = false
         writeSession('')
+        clearPanelState(store)
         throw new Error(data.error || '未登录或会话已过期')
     }
     if (!res.ok) {
@@ -51,12 +53,14 @@ export async function loadResources() {
         if (data.success && Array.isArray(data.data)) {
             store.resources = data.data
             store.resourcesFailed = false
-        } else {
-            store.resourcesFailed = true
+            return true
         }
+        store.resourcesFailed = true
+        return false
     } catch (e) {
         store.resourcesFailed = true
         console.error('loadResources failed:', e)
+        return false
     } finally {
         store.resourcesReady = true
     }
@@ -67,8 +71,15 @@ export async function loadGroups() {
     const store = useMainStore()
     try {
         const data = await authFetch(`${API}/groups`)
-        if (data.success) store.groups = data.data
-    } catch (e) { console.error('loadGroups failed:', e) }
+        if (data.success && Array.isArray(data.data)) {
+            store.groups = data.data
+            return true
+        }
+        return false
+    } catch (e) {
+        console.error('loadGroups failed:', e)
+        return false
+    }
 }
 
 // 加载模板
@@ -76,8 +87,15 @@ export async function loadTemplates() {
     const store = useMainStore()
     try {
         const data = await authFetch(`${API}/templates`)
-        if (data.success) store.userTemplates = data.data
-    } catch (e) { console.error('loadTemplates failed:', e) }
+        if (data.success && Array.isArray(data.data)) {
+            store.userTemplates = data.data
+            return true
+        }
+        return false
+    } catch (e) {
+        console.error('loadTemplates failed:', e)
+        return false
+    }
 }
 
 // 检查资源节点数

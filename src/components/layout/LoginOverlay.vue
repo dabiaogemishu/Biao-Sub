@@ -24,6 +24,7 @@
 import { ref } from 'vue'
 import { useMainStore } from '../../stores/main.js'
 import { writeSession, loadResources, loadGroups, loadTemplates } from '../../api/index.js'
+import { clearPanelState, listsLoadedSuccessfully } from '../../utils/session.js'
 import { showToast } from '../../utils/helpers.js'
 import { API } from '../../api/config.js'
 
@@ -49,9 +50,17 @@ async function handleLogin() {
       writeSession(data.token)
       store.loginPassword = ''
       store.resourcesReady = false
-      await Promise.all([loadResources(), loadGroups(), loadTemplates()])
-      store.isLoggedIn = true
-      showToast('登录成功')
+      const loaded = await Promise.all([loadResources(), loadGroups(), loadTemplates()])
+      if (listsLoadedSuccessfully(loaded)) {
+        store.isLoggedIn = true
+        showToast('登录成功')
+      } else {
+        writeSession('')
+        store.isLoggedIn = false
+        clearPanelState(store)
+        passwordError.value = '登录成功，但加载数据失败，请重试'
+        showToast('登录成功，但加载数据失败，请重试', 'error')
+      }
     } else {
       passwordError.value = data.error || '密码错误'
       showToast(data.error || '密码错误', 'error')

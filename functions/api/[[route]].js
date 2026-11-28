@@ -10,6 +10,7 @@ import { registerOutputRoutes } from '../_lib/routes/output.js';
 import { registerRemoteRoutes } from '../_lib/routes/remote.js';
 import { registerSubRoutes } from '../_lib/routes/subscription.js';
 import { registerTemplateRoutes } from '../_lib/routes/template.js';
+import { GENERIC_SERVER_ERROR } from '../_lib/safe-error.js';
 
 const app = new Hono().basePath('/api');
 let migrationDone = false;
@@ -41,7 +42,7 @@ app.use('/*', async (c, next) => {
     await next();
 });
 
-app.onError((error, c) => c.json({ success: false, error: error.message }, 500));
+app.onError((_error, c) => c.json({ success: false, error: GENERIC_SERVER_ERROR }, 500));
 
 registerOutputRoutes(app);
 registerSubRoutes(app);

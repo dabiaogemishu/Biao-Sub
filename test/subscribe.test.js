@@ -145,3 +145,13 @@ test('节点名里的官网地址不会被拆成第二条链接，同行的真�
     assert.match(two[0], /^ss:\/\//);
     assert.match(two[1], /^http:\/\//);
 });
+
+test('解析失败时不把节点链接片段带回错误信息', () => {
+    const link = 'ss://YWVzLTI1Ni1nY206c2VjcmV0@203.0.113.50:8388#leaky';
+    const parsed = parseSubscription('vless://@@@\n' + link.replace('ss://', 'notss://'));
+    const text = parsed.errors.map(item => item.message).join('\n');
+    assert.equal(text.includes('203.0.113.50'), false);
+    assert.equal(text.includes('ss://'), false);
+    assert.equal(text.includes(link), false);
+    assert.equal(text.includes('c2VjcmV0'), false);
+});

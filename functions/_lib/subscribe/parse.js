@@ -1,10 +1,23 @@
-import { parse as parseYaml } from 'yaml';
+import { parseSafeYaml } from '../core/yaml.js';
 import { shareUrl, tryDecodeBase64 } from '../core/codec.js';
 import { summarizeErrors } from '../core/model.js';
 import { protocolOf, parseUri, URI_SCHEME_SOURCE } from '../uri/index.js';
 import { clashProxyToNode } from '../clash/convert.js';
 
 const SCHEME_SOURCE = `${URI_SCHEME_SOURCE}://`;
+
+function looksLikeLink(text) {
+    return /https?:\/\/|[a-z][a-z0-9+.-]*:\/\//i.test(String(text || ''));
+}
+
+function safeNodeError(label, error, fallback) {
+    const message = String(error?.message || '').trim();
+    if (message && !looksLikeLink(message) && message.length <= 160) {
+        return `${label}：${message}`;
+    }
+    return `${label} ${fallback}`;
+}
+
 
 function looksLikeConfig(text) {
     return /:\/\//.test(text) || /(^|\n)\s*(proxies|Proxy)\s*:/.test(text);
@@ -76,8 +89,7 @@ export function parseUriList(text) {
         try {
             nodes.push(parseUri(link));
         } catch (error) {
-            const snippet = link.length > 96 ? `${link.slice(0, 96)}…` : link;
-            errors.push({ message: `${scheme || '链接'} 解析失败：${error.message}（${snippet}）` });
+            errors.push({ message: safeNodeError(scheme || '链接', error, '解析失败') });
         }
     }
     return { nodes, errors };
@@ -86,9 +98,9 @@ export function parseUriList(text) {
 export function parseClash(text) {
     let doc;
     try {
-        doc = parseYaml(text);
-    } catch (error) {
-        return { nodes: [], errors: [{ message: `Clash YAML 解析失败：${error.message}` }], yamlError: true };
+        doc = parseSafeYaml(text);
+    } catch {
+        return { nodes: [], errors: [{ message: 'Clash YAML 解析失败' }], yamlError: true };
     }
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
         return { nodes: [], errors: [], notClash: true };
@@ -103,7 +115,7 @@ export function parseClash(text) {
             const node = clashProxyToNode(proxy);
             if (node) nodes.push(node);
         } catch (error) {
-            errors.push({ message: `${label}：${error.message}` });
+            errors.push({ message: safeNodeError(label, error, '无法识别') });
         }
     });
     return { nodes, errors, notClash: false };

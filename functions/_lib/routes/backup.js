@@ -1,5 +1,6 @@
 import { parseJson } from '../core/model.js';
 import { restoreBackup } from '../backup.js';
+import { GENERIC_SERVER_ERROR } from '../safe-error.js';
 
 export function registerBackupRoutes(app) {
     app.get('/backup', async (c) => {
@@ -26,7 +27,11 @@ export function registerBackupRoutes(app) {
             const plan = await restoreBackup(c.env.DB, body, body.mode);
             return c.json({ success: true, mode: plan.mode });
         } catch (error) {
-            return c.json({ success: false, error: error.message }, 500);
+            const message = String(error?.message || '').trim();
+            const safe = message && !/https?:\/\/|[a-z][a-z0-9+.-]*:\/\//i.test(message) && message.length <= 160
+                ? message
+                : GENERIC_SERVER_ERROR;
+            return c.json({ success: false, error: safe }, 400);
         }
     });
 }

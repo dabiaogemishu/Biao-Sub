@@ -7,7 +7,7 @@
           <i class="fa-solid fa-layer-group text-accent"></i>
           {{ store.groupModal.isEdit ? '编辑聚合组' : '新建聚合组' }}
         </h3>
-        <button class="btn btn-circle btn-ghost btn-sm" @click="store.groupModal.show = false">
+        <button class="btn btn-circle btn-ghost btn-sm" @click="requestClose">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -369,7 +369,7 @@
           </button>
         </div>
         <div class="flex gap-2">
-          <button class="btn btn-ghost" @click="store.groupModal.show = false">取消</button>
+          <button class="btn btn-ghost" @click="requestClose">取消</button>
           <button class="btn btn-accent" @click="saveGroup" :disabled="store.submitting">
             <span v-if="store.submitting" class="loading loading-spinner loading-sm"></span>
             {{ store.groupModal.isEdit ? '保存修改' : '创建' }}
@@ -377,17 +377,18 @@
         </div>
       </div>
     </div>
-    <form method="dialog" class="modal-backdrop" @click="store.groupModal.show = false"></form>
+    <form method="dialog" class="modal-backdrop" @click.prevent="requestClose"></form>
   </dialog>
 </template>
 
 <script setup>
 import { ref, watch, nextTick, computed } from 'vue'
-import { parse as parseYaml } from 'yaml'
+import { parseSafeYaml } from '../../../functions/_lib/core/yaml.js'
 import { useMainStore } from '../../stores/main.js'
 import { authFetch, loadGroups, loadTemplates } from '../../api/index.js'
 import { revealGroups, showToast, copyText } from '../../utils/helpers.js'
 import { subscriptionLinks, PROTOCOL_OPTIONS, withProcess } from '../../utils/panel.js'
+import { groupFormIsDirty, groupFormSignature } from '../../utils/session.js'
 import { API } from '../../api/config.js'
 
 const store = useMainStore()
@@ -397,14 +398,23 @@ const pickQuery = ref('')
 
 const protocolOptions = PROTOCOL_OPTIONS
 
+const formSnapshot = ref('')
+
 watch(() => [store.groupModal.show, store.groupForm.id], () => {
   if (!store.groupModal.show) {
     refreshedLinks.value = null
     pickQuery.value = ''
+    formSnapshot.value = ''
   } else {
     ensureProcess()
+    nextTick(() => { formSnapshot.value = groupFormSignature(store.groupForm) })
   }
 })
+
+function requestClose() {
+  if (groupFormIsDirty(store.groupForm, formSnapshot.value) && !confirm('还有未保存的修改，关闭后会丢失。确定关闭吗？')) return
+  store.groupModal.show = false
+}
 
 const visibleResources = computed(() => {
   const query = String(pickQuery.value || '').trim().toLowerCase()
@@ -417,6 +427,7 @@ const allVisibleSelected = computed(() => {
 })
 
 function goAddResources() {
+  if (groupFormIsDirty(store.groupForm, formSnapshot.value) && !confirm('还有未保存的修改，关闭后会丢失。确定关闭吗？')) return
   store.groupModal.show = false
   store.currentTab = 'resources'
 }
@@ -479,7 +490,7 @@ function chainGroups() {
   const names = (store.groupForm.clash_config.groups || []).map(group => group?.name).filter(Boolean)
   if (store.groupForm.clash_config.mode === 'raw') {
     try {
-      const doc = parseYaml(store.groupForm.clash_config.raw_yaml || '')
+      const doc = parseSafeYaml(store.groupForm.clash_config.raw_yaml || '')
       for (const group of doc?.['proxy-groups'] || []) {
         if (group?.name) names.push(String(group.name))
       }

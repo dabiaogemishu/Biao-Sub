@@ -1,4 +1,5 @@
 import { fetchSubscription } from '../remote-service.js';
+import { safeRemoteError } from '../safe-error.js';
 import { applyProxyUpdate, loadProxy, saveProxy, toPublicProxy } from '../proxy-settings.js';
 
 const TEST_URL = 'https://cloudflare.com/cdn-cgi/trace';
@@ -32,7 +33,7 @@ export function registerSettingsRoutes(app) {
                 data: { message: ip ? `代理连接成功，出口 IP：${ip}` : '代理连接成功' }
             });
         } catch (error) {
-            return c.json({ success: false, error: error.message }, 502);
+            return c.json({ success: false, error: safeRemoteError(error) }, 502);
         }
     });
 }

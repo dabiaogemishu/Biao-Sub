@@ -1,6 +1,8 @@
 import { parseJson } from '../core/model.js';
 import { loadProxy } from '../proxy-settings.js';
 import { fetchSubscription, performRemoteRefresh } from '../remote-service.js';
+import { safeRemoteError } from '../safe-error.js';
+import { DEFAULT_UA, sanitizeUserAgent } from '../socks5.js';
 import { canonicalize } from '../subscribe/store.js';
 import { createdResource } from './subscription.js';
 
@@ -9,7 +11,7 @@ export function registerRemoteRoutes(app) {
         const body = await c.req.json();
         const sourceUrl = (body.url || '').trim();
         if (!sourceUrl) return c.json({ success: false, error: '请输入订阅链接' }, 400);
-        const ua = body.ua || 'clash-verge/v1.7.7';
+        const ua = sanitizeUserAgent(body.ua || DEFAULT_UA);
         try {
             const proxy = await loadProxy(c.env.DB);
             const { content, subInfo } = await fetchSubscription(sourceUrl, ua, proxy);
@@ -31,7 +33,7 @@ export function registerRemoteRoutes(app) {
             )].filter(Boolean);
             return c.json({ success: true, data: { name, nodeCount: stored.parsed.nodes.length, subInfo: info }, warnings: stored.warnings, resources });
         } catch (error) {
-            return c.json({ success: false, error: error.message }, 502);
+            return c.json({ success: false, error: safeRemoteError(error) }, 502);
         }
     });
 
@@ -43,12 +45,13 @@ export function registerRemoteRoutes(app) {
             if (!row.source_url) return c.json({ success: false, error: '这条远程订阅没有来源地址' }, 400);
             const params = parseJson(row.params, {});
             const proxy = await loadProxy(c.env.DB);
-            const { content, subInfo } = await fetchSubscription(row.source_url, params.ua, proxy);
+            const ua = sanitizeUserAgent(params.ua || DEFAULT_UA);
+            const { content, subInfo } = await fetchSubscription(row.source_url, ua, proxy);
             const result = await performRemoteRefresh(c.env.DB, id, content, subInfo);
             if (!result.ok) return c.json({ success: false, error: result.error }, result.status || 422);
             return c.json({ success: true, data: { nodeCount: result.nodeCount, subInfo: result.subInfo }, warnings: result.warnings || [] });
         } catch (error) {
-            return c.json({ success: false, error: error.message }, 502);
+            return c.json({ success: false, error: safeRemoteError(error) }, 502);
         }
     });
 }

@@ -24,6 +24,8 @@
 <script setup>
 import { useMainStore } from '../../stores/main.js'
 import { showToast } from '../../utils/helpers.js'
+import { writeSession } from '../../api/index.js'
+import { clearPanelState } from '../../utils/session.js'
 
 const store = useMainStore()
 
@@ -37,8 +39,8 @@ function toggleTheme() {
 
 function logout() {
   store.isLoggedIn = false
-  sessionStorage.removeItem('biaosub_session')
-  localStorage.removeItem('auth_token')
+  writeSession('')
+  clearPanelState(store)
   showToast('已退出登录')
 }
 </script>

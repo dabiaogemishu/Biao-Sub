@@ -4,7 +4,9 @@ import { toUri } from './uri/index.js';
 import { planRemoteRefresh } from './groups/membership.js';
 import { rebuildCachesFor } from './output/render.js';
 import { validateEnabledProxy } from './proxy-settings.js';
-import { fetchViaProxy } from './socks5.js';
+import { DEFAULT_UA, fetchViaProxy, sanitizeUserAgent } from './socks5.js';
+import { GENERIC_REMOTE_ERROR, REMOTE_DENIED_ERROR, REMOTE_REDIRECT_LIMIT_ERROR, REMOTE_TIMEOUT_ERROR } from './safe-error.js';
+import { assertSafeHttpUrl } from './url-guard.js';
 
 export function rowToSubscription(row) {
     return {
@@ -25,8 +27,8 @@ export async function performRemoteRefresh(db, id, text, subInfo = {}) {
     let links;
     try {
         links = parsed.nodes.map(node => toUri(node));
-    } catch (error) {
-        return { ok: false, status: 422, error: `节点无法导出：${error.message}`, subscription: current };
+    } catch {
+        return { ok: false, status: 422, error: '节点无法导出', subscription: current };
     }
     const plan = planRemoteRefresh(current, { ...parsed, links });
     const info = { ...(plan.subscription.info || {}), ...(subInfo || {}) };
@@ -37,42 +39,56 @@ export async function performRemoteRefresh(db, id, text, subInfo = {}) {
     return { ok: true, nodeCount: links.length, subInfo: info, warnings: parsed.errors };
 }
 
+function readSubInfo(headers) {
+    const subInfo = {};
+    const userinfo = headers?.get?.('Subscription-Userinfo') || headers?.get?.('subscription-userinfo');
+    if (!userinfo) return subInfo;
+    for (const part of userinfo.split(';')) {
+        const [key, value] = part.split('=').map(item => item.trim());
+        if (key && value) subInfo[key] = Number.isNaN(Number(value)) ? value : Number(value);
+    }
+    return subInfo;
+}
+
 export async function fetchSubscription(url, ua, proxy, deps) {
+    const safeUa = sanitizeUserAgent(ua || DEFAULT_UA);
     if (proxy?.enabled) {
         const problem = validateEnabledProxy(proxy);
         if (problem) throw new Error(problem);
-        return fetchViaProxy(url, ua, proxy, deps);
+        return fetchViaProxy(url, safeUa, proxy, deps);
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    let current = assertSafeHttpUrl(url);
     const doFetch = deps?.fetch || fetch;
-    try {
-        const response = await doFetch(url, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': ua || 'clash-verge/v1.7.7',
-                'Accept': '*/*'
-            },
-            redirect: 'follow'
-        });
-        if (response.status === 401 || response.status === 403) {
-            throw new Error(`远程服务器拒绝访问（${response.status}）。机场可能屏蔽了 Cloudflare 出口，可在系统设置里启用 SOCKS5 代理，或改用手动粘贴订阅内容。`);
-        }
-        if (!response.ok) throw new Error(`远程订阅返回 HTTP ${response.status}`);
-        const content = await response.text();
-        const subInfo = {};
-        const userinfo = response.headers.get('Subscription-Userinfo') || response.headers.get('subscription-userinfo');
-        if (userinfo) {
-            for (const part of userinfo.split(';')) {
-                const [key, value] = part.split('=').map(item => item.trim());
-                if (key && value) subInfo[key] = Number.isNaN(Number(value)) ? value : Number(value);
+    const timeoutMs = deps?.timeoutMs || 15000;
+    for (let hop = 0; hop < 5; hop++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await doFetch(current.href, {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': safeUa,
+                    'Accept': '*/*'
+                },
+                redirect: 'manual'
+            });
+            if ([301, 302, 303, 307, 308].includes(response.status)) {
+                const location = response.headers.get('location') || response.headers.get('Location');
+                if (!location) throw new Error(GENERIC_REMOTE_ERROR);
+                current = assertSafeHttpUrl(location, current);
+                continue;
             }
+            if (response.status === 401 || response.status === 403) {
+                throw new Error(REMOTE_DENIED_ERROR);
+            }
+            if (!response.ok) throw new Error(GENERIC_REMOTE_ERROR);
+            return { content: await response.text(), subInfo: readSubInfo(response.headers) };
+        } catch (error) {
+            if (error.name === 'AbortError') throw new Error(REMOTE_TIMEOUT_ERROR);
+            throw error;
+        } finally {
+            clearTimeout(timeout);
         }
-        return { content, subInfo };
-    } catch (error) {
-        if (error.name === 'AbortError') throw new Error('请求超时（15秒）');
-        throw error;
-    } finally {
-        clearTimeout(timeout);
     }
+    throw new Error(REMOTE_REDIRECT_LIMIT_ERROR);
 }

@@ -11,12 +11,13 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
     "hono": "^3.10.0",
     "pinia": "^2.1.7",
     "sortablejs": "^1.15.6",
     "tunnelfetch": "^1.13.1",
     "vue": "^3.4.15",
-    "yaml": "^2.6.1"
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.3",

@@ -1,7 +1,14 @@
-export function generateToken() {
+export function generateToken(length = 16) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const max = 256 - (256 % chars.length);
     let result = '';
-    for (let i = 0; i < bytes.length; i++) result += chars[bytes[i] % chars.length];
+    while (result.length < length) {
+        const bytes = crypto.getRandomValues(new Uint8Array(length));
+        for (const byte of bytes) {
+            if (byte >= max) continue;
+            result += chars[byte % chars.length];
+            if (result.length === length) break;
+        }
+    }
     return result;
 }

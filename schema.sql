@@ -49,6 +49,14 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+-- Login rate limiting. Does not alter subscriptions, groups or templates.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    source TEXT PRIMARY KEY,
+    fail_count INTEGER NOT NULL DEFAULT 0,
+    lock_until INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL
+);
+
 -- Upgrades for databases created by older BiaoSUB versions.
 -- Ignore "duplicate column name" if a column is already there.
 ALTER TABLE subscriptions ADD COLUMN source_url TEXT;

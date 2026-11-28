@@ -1,5 +1,6 @@
 import { resolveFormat } from '../output/build.js';
 import { buildGroupOutput } from '../output/render.js';
+import { GENERIC_SUBSCRIBE_ERROR } from '../safe-error.js';
 
 export function registerOutputRoutes(app) {
     app.get('/g/:token', async (c) => {
@@ -13,7 +14,12 @@ export function registerOutputRoutes(app) {
         if (c.executionCtx) c.executionCtx.waitUntil(touch);
         else await touch;
 
-        const built = await buildGroupOutput(c.env.DB, group);
+        let built;
+        try {
+            built = await buildGroupOutput(c.env.DB, group);
+        } catch {
+            return c.text(GENERIC_SUBSCRIBE_ERROR, 500);
+        }
         const filename = encodeURIComponent(group.name || 'BiaoSUB');
         const extension = format === 'base64' ? 'txt' : format === 'singbox' ? 'json' : 'yaml';
         c.header('Content-Disposition', `attachment; filename*=UTF-8''${filename}.${extension}`);

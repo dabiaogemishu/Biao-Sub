@@ -1,4 +1,5 @@
-import { parse as parseYaml, stringify } from 'yaml';
+import { stringify } from 'yaml';
+import { parseSafeYaml } from '../core/yaml.js';
 import { encodeBase64 } from '../core/codec.js';
 import { cleanObject } from '../core/model.js';
 import { toUri } from '../uri/index.js';
@@ -78,7 +79,7 @@ export function policyGroupNames(clashConfig = {}) {
     }
     if (clashConfig.mode === 'raw' && clashConfig.raw_yaml) {
         try {
-            const doc = parseYaml(String(clashConfig.raw_yaml));
+            const doc = parseSafeYaml(String(clashConfig.raw_yaml));
             for (const group of doc?.['proxy-groups'] || []) {
                 if (group?.name) names.push(String(group.name));
             }
@@ -167,6 +168,16 @@ function renderRules(raw) {
     return stringify({ rules: items }, { lineWidth: 0 }).trimEnd();
 }
 
+function looksLikeLink(text) {
+    return /https?:\/\/|[a-z][a-z0-9+.-]*:\/\//i.test(String(text || ''));
+}
+
+function safeSkipMessage(error, fallback = '无法导出') {
+    const message = String(error?.message || error || '').trim();
+    if (message && !looksLikeLink(message) && message.length <= 160) return message;
+    return fallback;
+}
+
 function exportClashProxies(nodes) {
     const proxies = [];
     const kept = [];
@@ -176,7 +187,7 @@ function exportClashProxies(nodes) {
             proxies.push(nodeToClashProxy(node));
             kept.push(node);
         } catch (error) {
-            skipped.push({ name: node?.name || '未命名', message: error.message });
+            skipped.push({ name: node?.name || '未命名', message: safeSkipMessage(error) });
         }
     }
     return { proxies, kept, skipped };
@@ -208,7 +219,7 @@ export function renderBase64(nodes) {
         try {
             links.push(toUri(node));
         } catch (error) {
-            errors.push({ message: `${node.name}：${error.message}` });
+            errors.push({ message: `${node.name} 无法导出` });
         }
     }
     return { base64: encodeBase64(links.join('\n')), links, errors };
@@ -237,7 +248,7 @@ export function renderSingbox(nodes) {
             if (node.type === 'wireguard') endpoints.push(doc.object);
             else outbounds.push(doc.object);
         } catch (error) {
-            skipped.push({ name: node?.name || '未命名', message: error.message });
+            skipped.push({ name: node?.name || '未命名', message: safeSkipMessage(error) });
         }
     }
     const payload = { outbounds };
@@ -310,10 +321,10 @@ export function renderHostedSubscription(rawYaml, nodes) {
     const selected = exportClashProxies(nodes).proxies;
     let doc;
     try {
-        doc = raw.trim() ? parseYaml(raw) : {};
-    } catch (error) {
+        doc = raw.trim() ? parseSafeYaml(raw) : {};
+    } catch {
         const encoded = renderBase64(nodes || []);
-        return withFormats(nodes || [], raw, encoded, [{ message: `托管 YAML 无法解析：${error.message}` }]);
+        return withFormats(nodes || [], raw, encoded, [{ message: '托管 YAML 无法解析' }]);
     }
     if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
         const encoded = renderBase64(nodes || []);
@@ -332,7 +343,7 @@ export function renderHostedSubscription(rawYaml, nodes) {
             const node = clashProxyToNode(proxy);
             if (node) outputNodes.push(node);
         } catch (error) {
-            errors.push({ message: `${proxy?.name || '代理'}：${error.message}` });
+            errors.push({ message: `${proxy?.name || '代理'} 无法识别` });
         }
     }
     const encoded = renderBase64(outputNodes);

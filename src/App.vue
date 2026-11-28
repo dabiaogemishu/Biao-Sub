@@ -29,7 +29,8 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useMainStore } from './stores/main.js'
-import { loadResources, loadGroups, loadTemplates, authFetch } from './api/index.js'
+import { loadResources, loadGroups, loadTemplates, authFetch, writeSession } from './api/index.js'
+import { clearPanelState, listsLoadedSuccessfully } from './utils/session.js'
 import { API } from './api/config.js'
 
 // Layout
@@ -63,8 +64,14 @@ onMounted(async () => {
   localStorage.removeItem('auth_token')
   const token = sessionStorage.getItem('biaosub_session')
   if (token) {
-    await Promise.all([loadResources(), loadGroups(), loadTemplates()])
-    store.isLoggedIn = true
+    const loaded = await Promise.all([loadResources(), loadGroups(), loadTemplates()])
+    if (listsLoadedSuccessfully(loaded)) {
+      store.isLoggedIn = true
+    } else {
+      writeSession('')
+      store.isLoggedIn = false
+      clearPanelState(store)
+    }
   }
   store.booting = false
 })

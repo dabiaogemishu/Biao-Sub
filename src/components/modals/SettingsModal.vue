@@ -145,6 +145,7 @@ function applyProxyUri() {
       proxy.clearPassword = !parsed.password
       if (!parsed.password) proxy.hasPassword = false
     }
+    proxy.uri = ''
     proxy.ok = hasUserinfo ? '已填入链接里的主机和账号，保存后生效' : '已填入链接里的主机，保存后生效'
   } catch (error) {
     proxy.error = error.message
@@ -206,6 +207,7 @@ async function testProxy() {
 }
 
 async function exportBackup() {
+  if (!confirm('备份文件包含全部节点和订阅链接，请妥善保管，建议加密存放。确定导出吗？')) return
   try {
     const data = await authFetch(`${API}/backup`)
     if (data.success) {

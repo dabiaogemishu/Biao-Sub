@@ -1,3 +1,5 @@
+import { assertSafeHttpUrl } from './url-guard.js';
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const MAX_BODY = 8 * 1024 * 1024;
@@ -98,12 +100,31 @@ export function buildConnectRequest(host, port) {
     return concat([Uint8Array.of(0x05, 0x01, 0x00, 0x03, name.length), name, portBytes]);
 }
 
+
+export const DEFAULT_UA = 'clash-verge/v1.7.7';
+
+export function sanitizeUserAgent(ua) {
+    const raw = String(ua ?? '');
+    if (/[\u0000-\u001F\u007F]/.test(raw)) return DEFAULT_UA;
+    const cleaned = raw.trim();
+    return (cleaned || DEFAULT_UA).slice(0, 200);
+}
+
+function safeRequestPath(target) {
+    const path = `${target.pathname || '/'}${target.search || ''}`;
+    const host = String(target.host || '');
+    if (!path.startsWith('/') || /[\r\n\x00]/.test(path) || /[\r\n\x00]/.test(host)) {
+        throw new Error('订阅链接格式不正确');
+    }
+    return { path, host };
+}
+
 export function buildHttpRequest(target, ua) {
-    const path = `${target.pathname || '/'}${target.search}`;
+    const { path, host } = safeRequestPath(target);
     const lines = [
         `GET ${path} HTTP/1.1`,
-        `Host: ${target.host}`,
-        `User-Agent: ${ua || 'clash-verge/v1.7.7'}`,
+        `Host: ${host}`,
+        `User-Agent: ${sanitizeUserAgent(ua)}`,
         'Accept: */*',
         'Connection: close',
         '',
@@ -391,11 +412,8 @@ function parseSubInfo(headers) {
 }
 
 export async function fetchViaProxy(url, ua, proxy, deps = {}) {
-    let target;
-    try { target = new URL(url); } catch { throw new Error('订阅链接格式不正确'); }
-    if (target.protocol !== 'http:' && target.protocol !== 'https:') {
-        throw new Error('只支持通过代理获取 http 或 https 订阅');
-    }
+    const target = assertSafeHttpUrl(url);
+    const safeUa = sanitizeUserAgent(ua);
     const connect = deps.connect || defaultConnect;
     const upgradeTls = deps.upgradeTls || defaultUpgradeTls;
     const timeoutMs = deps.timeoutMs || 15000;
@@ -406,14 +424,10 @@ export async function fetchViaProxy(url, ua, proxy, deps = {}) {
     const attempt = (async () => {
         let current = target;
         for (let hop = 0; hop < 5; hop++) {
-            const message = await requestOnce(current, ua, proxy, { connect, upgradeTls }, arm);
+            const message = await requestOnce(current, safeUa, proxy, { connect, upgradeTls }, arm);
             if ([301, 302, 303, 307, 308].includes(message.status)) {
                 if (!message.headers.location) throw new Error('通过代理获取订阅失败：重定向没有 Location');
-                const next = new URL(message.headers.location, current);
-                if (next.protocol !== 'http:' && next.protocol !== 'https:') {
-                    throw new Error('通过代理获取订阅失败：重定向协议不受支持');
-                }
-                current = next;
+                current = assertSafeHttpUrl(message.headers.location, current);
                 continue;
             }
             if (message.status === 401 || message.status === 403) {

@@ -4,7 +4,8 @@ import { Hono } from 'hono';
 import { applyProxyUpdate, parseSocks5Uri, toPublicProxy } from '../functions/_lib/proxy-settings.js';
 import { registerSettingsRoutes } from '../functions/_lib/routes/settings.js';
 import { fetchSubscription } from '../functions/_lib/remote-service.js';
-import { buildAuth, buildConnectRequest, buildGreeting, fetchViaProxy } from '../functions/_lib/socks5.js';
+import { buildAuth, buildConnectRequest, buildGreeting, buildHttpRequest, fetchViaProxy, sanitizeUserAgent } from '../functions/_lib/socks5.js';
+import { UNSUPPORTED_SUBSCRIPTION_URL } from '../functions/_lib/url-guard.js';
 
 const SECRET = 'pw-test';
 
@@ -355,4 +356,38 @@ test('设置接口保存密码，但 GET 只返回已设置标记', async () => 
         body: JSON.stringify({ enabled: false, host: 'moved.example', port: 9050, username: '', clearPassword: true })
     }, { DB: db });
     assert.equal((await cleared.json()).data.hasPassword, false);
+});
+
+test('User-Agent 里的 CR/LF 和控制字符不会注入额外请求头', async () => {
+    const payload = 'clash-verge/v1.7.7\r\nX-Injected: pwned\nHost: evil.example';
+    assert.equal(sanitizeUserAgent(payload).includes('\r'), false);
+    assert.equal(sanitizeUserAgent(payload).includes('\n'), false);
+    const text = new TextDecoder().decode(buildHttpRequest(new URL('https://airport.example/sub?x=1'), payload));
+    assert.match(text, /^GET \/sub\?x=1 HTTP\/1\.1\r\n/);
+    assert.equal((text.match(/^Host:/gm) || []).length, 1);
+    assert.equal(text.includes('X-Injected'), false);
+    assert.equal(text.includes('evil.example'), false);
+    assert.match(text, /User-Agent: clash-verge\/v1\.7\.7\r\n/);
+
+    const transport = mockSocksConnect({
+        responses: ['HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok']
+    });
+    const result = await fetchViaProxy('http://airport.example/sub', payload, proxy, transport);
+    assert.equal(result.content, 'ok');
+    const sent = transport.events.requests[0].text;
+    assert.equal(sent.includes('X-Injected'), false);
+    assert.equal((sent.match(/^Host:/gm) || []).length, 1);
+});
+
+test('通过代理重定向到回环地址时拒绝，并且不再发第二跳', async () => {
+    const transport = mockSocksConnect({
+        responses: [
+            'HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1/secret\r\nContent-Length: 0\r\n\r\n'
+        ]
+    });
+    await assert.rejects(
+        fetchViaProxy('http://airport.example/start', 'ua-test', proxy, transport),
+        { message: UNSUPPORTED_SUBSCRIPTION_URL }
+    );
+    assert.equal(transport.events.requests.length, 1);
 });

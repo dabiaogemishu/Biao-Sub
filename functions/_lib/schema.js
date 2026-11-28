@@ -39,6 +39,12 @@ export const CREATE_TABLES = [
     `CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS login_attempts (
+        source TEXT PRIMARY KEY,
+        fail_count INTEGER NOT NULL DEFAULT 0,
+        lock_until INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
     )`
 ];
 
